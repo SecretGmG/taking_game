@@ -10,7 +10,13 @@ impl Impartial<TakingGame> for TakingGame {
     fn get_parts(&self) -> Option<Vec<TakingGame>> {
         None
     }
-
+    /// Returns `None` if splitting is disabled via feature flag.
+    ///
+    /// Otherwise returns independent subgames by detecting connected components
+    /// of the underlying hypergraph.
+    ///
+    /// # Efficiency
+    /// Uses union-find with union by rank for fast component detection.
     #[cfg(not(feature = "no_split"))]
     fn get_parts(&self) -> Option<Vec<TakingGame>> {
         let independent_sets_of_nodes = split_to_independent_sets_of_nodes(&self);
@@ -20,20 +26,32 @@ impl Impartial<TakingGame> for TakingGame {
             Some(
                 independent_sets_of_nodes
                     .into_iter()
-                    .map(|sets| TakingGame::new(sets))
+                    .map(|sets| TakingGame::from_sets_of_nodes(sets))
                     .collect(),
             )
         }
     }
+    /// Provides an upper bound on the nimber of the game.
+    ///
+    /// This returns 0 if a symmetry is found (indicating potential simplification),
+    /// otherwise returns the node count as a worst-case upper bound.
     fn get_max_nimber(&self) -> Option<usize> {
         //return self.get_node_count();
 
         match self.find_symmetry() {
             Some(_) => Some(0),
-            None => Some(self.node_count),
+            None => Some(self.get_node_count()),
         }
     }
 
+    /// Returns all legal child positions by simulating every possible move.
+    ///
+    /// Each legal move is generated from a set of nodes and all non-empty subsets
+    /// of those nodes. Lone nodes (that only occur in one move set) are treated specially.
+    ///
+    /// # Efficiency
+    /// This is exponential in the number of nodes per move (O(2ⁿ)). A panic is triggered
+    /// for sets with more than 128 nodes.
     fn get_moves(&self) -> Vec<TakingGame> {
         let mut moves = vec![];
 
@@ -74,6 +92,14 @@ use super::util;
 
 //implements the generation of moves;
 impl TakingGame {
+    /// Generates all legal moves from a single move set by trying
+    /// every subset of the nodes involved (excluding the empty set).
+    ///
+    /// Nodes that occur in no other move sets are treated separately.
+    ///
+    /// # Panics
+    /// Panics if the number of non-lone nodes exceeds 128 to avoid overflow
+    /// in bitmask-based enumeration.
     fn append_moves_of_set(
         &self,
         lone_nodes: Vec<usize>,
@@ -98,6 +124,11 @@ impl TakingGame {
             }
         }
     }
+    /// Splits a node set into:
+    /// - Lone nodes: nodes that appear in only one set.
+    /// - Other nodes: nodes shared across multiple sets.
+    ///
+    /// Used to optimize move enumeration.
     fn collect_lone_nodes_and_other_nodes(
         &self,
         set_of_nodes: &Vec<usize>,
@@ -107,7 +138,10 @@ impl TakingGame {
             .copied()
             .partition(|&node| self.get_set_indices()[node].len() == 1)
     }
-
+    /// Computes a child game resulting from removing a subset of nodes.
+    ///
+    /// The `mask` determines which of the `other_nodes` to include.
+    /// A prefix of `lone_nodes` is also removed.
     fn get_child(
         &self,
         lone_nodes: &Vec<usize>,
@@ -128,13 +162,16 @@ impl TakingGame {
         }
         self.make_move_unchecked(&mut nodes_to_remove)
     }
-    ///removes all nodes specified in the argument
+    /// Removes all nodes specified in the argument and returns the resulting game.
+    /// 
+    /// Preserves the original node mapping.
     pub fn make_move_unchecked(&self, nodes_to_remove: &mut SortedSet<usize>) -> TakingGame {
-        TakingGame::new(
+        TakingGame::from_sets_of_nodes_with_node_map(
             self.sets_of_nodes
                 .iter()
                 .map(|set| util::remove_subset(set, nodes_to_remove))
                 .collect(),
+            self.nodes.clone()
         )
     }
 }
