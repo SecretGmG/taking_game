@@ -2,11 +2,12 @@ use std::hash::{Hasher, Hash};
 
 use sorted_vec::SortedSet;
 
-pub mod impls;
 pub mod constructor;
-pub mod new;
-pub mod symmetries;
 pub mod util;
+
+mod impartial;
+mod new;
+mod symmetries;
 
 pub use constructor::Constructor;
 

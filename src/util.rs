@@ -136,14 +136,14 @@ pub fn get_test_games() -> Vec<(TakingGame, Option<usize>, Option<bool>)> {
                 .combine(Constructor::rect(6, 3).build())
                 .build(),
             Some(0),
-            Some(false),
+            Some(true),
         ),
         (
             Constructor::rect(1, 50)
                 .combine(Constructor::rect(2, 9).build())
                 .build(),
             None,
-            Some(true),
+            Some(false),
         ),
         (
             Constructor::rect(1, 10)
