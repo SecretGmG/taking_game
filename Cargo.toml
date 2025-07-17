@@ -1,0 +1,29 @@
+[package]
+name = "taking_game"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+name = "taking_game"
+path = "src/lib.rs"
+
+[profile.release]
+debug = true
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+rand = "0.9.1"
+queues = "1.1.0"
+sorted-vec = "0.8.6"
+indicatif = "0.18.0"
+union-find = "0.4.3"
+evaluator = { git = "https://github.com/SecretGmG/impartial_analiser", version = "0.1.0" }
+
+[features]
+default = ["symmetry_finder"]
+
+# Each can be individually toggled
+symmetry_finder = []
+no_sort = []
+no_split = []
