@@ -60,7 +60,6 @@ impl TakingGame {
         }
         game
     }
-    ///flattens the indecies and then returns the nr of nodes
     /// Normalize node indices by flattening and mapping original node labels
     /// to a compact range 0..N-1, returning the updated sets and original node labels.
     fn flatten_and_get_nodes(
@@ -148,7 +147,7 @@ impl TakingGame {
         }
         *nodes = new_nodes;
     }
-    ///sorts each set of nodes and sorts the sets of nodes
+    /// Lexicographically sorts the list of sets, assuming each set is already sorted
     fn sort_sets_of_nodes_by_indices(sets_of_nodes: &mut Vec<SortedSet<usize>>) {
         sets_of_nodes.sort_by(|set1, set2| util::compare_sorted(set1, set2));
     }
@@ -156,9 +155,9 @@ impl TakingGame {
     ///
     /// This orders nodes by lex order of their set indices, then inverts to a permutation.
     fn generate_index_mapping(set_indices: &Vec<Vec<usize>>, node_count: usize) -> Vec<usize> {
-        let mut inverse_maping: Vec<usize> = (0..node_count).collect();
-        inverse_maping.sort_by(|a, b| Self::node_comparer(*a, *b, &set_indices));
-        util::inverse_permutation(inverse_maping)
+        let mut inverse_mapping: Vec<usize> = (0..node_count).collect();
+        inverse_mapping.sort_by(|a, b| Self::node_comparer(*a, *b, &set_indices));
+        util::inverse_permutation(inverse_mapping)
     }
     fn node_comparer(a: usize, b: usize, set_indices: &Vec<Vec<usize>>) -> Ordering {
         util::compare_sorted(&set_indices[a], &set_indices[b])
@@ -191,7 +190,7 @@ mod tests {
             SortedSet::from_unsorted(vec![3, 5]),
             SortedSet::from_unsorted(vec![1, 5]),
         ]);
-        assert_eq!(game1, game2); // should be true due to cannonization
+        assert_eq!(game1, game2); // should be true due to canonization
     }
 
     use super::*;
@@ -261,7 +260,7 @@ mod tests {
         // Create the canonicalized parent game
         let parent_game = TakingGame::from_sets_of_nodes(original_sets.clone());
 
-        let mut new_sets = parent_game.get_sets_of_nodes().clone();
+        let mut new_sets = parent_game.get_sets_of_nodes().to_vec();
 
         let new_node_99: usize = parent_game.nodes.iter().position(|n| *n == 99).unwrap();
         let new_node_100: usize = parent_game.nodes.iter().position(|n| *n == 100).unwrap();

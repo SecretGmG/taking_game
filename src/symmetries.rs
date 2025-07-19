@@ -27,7 +27,7 @@ impl TakingGame {
             return None;
         }
 
-        let symmetry_hash = self.generate_symmety_hash()?;
+        let symmetry_hash = self.generate_symmetry_hash()?;
 
         let sets_of_candidates = Self::generate_sets_of_candidates(symmetry_hash)?;
 
@@ -69,7 +69,7 @@ impl TakingGame {
     /// Runs an alternating update of node and set parities. If the resulting global parity
     /// (XOR of all node parities) is zero, returns the vector of node parities.
     /// Otherwise, returns `None` indicating asymmetry.
-    fn generate_symmety_hash(&self) -> Option<Vec<usize>> {
+    fn generate_symmetry_hash(&self) -> Option<Vec<usize>> {
         let mut node_parities = vec![0; self.get_node_count()];
         let mut set_parities: Vec<usize> = self.sets_of_nodes.iter().map(|s| s.len()).collect();
 

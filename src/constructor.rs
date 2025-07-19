@@ -139,7 +139,7 @@ impl Constructor {
     /// and appends all sets from the other game (offset appropriately).
     pub fn fully_connect(mut self, g:&TakingGame) -> Constructor {
         let node_count = self.g.get_node_count();
-        let mut new_sets_of_nodes = self.g.get_sets_of_nodes().clone();
+        let mut new_sets_of_nodes = self.g.get_sets_of_nodes().to_vec();
         for set in g.get_sets_of_nodes() {
             new_sets_of_nodes.push(SortedSet::from_unsorted(set.iter().map(|n| n + node_count).collect()));
         }
@@ -155,7 +155,7 @@ impl Constructor {
     ///
     /// The node indices of the appended game are offset to avoid collisions.
     pub fn combine(self, g: TakingGame) -> Constructor{
-        let mut new_sets_of_nodes = self.g.get_sets_of_nodes().clone();
+        let mut new_sets_of_nodes = self.g.get_sets_of_nodes().to_vec();
         let node_count = self.g.get_node_count();
         for set_of_nodes in g.get_sets_of_nodes() {
             new_sets_of_nodes.push(SortedSet::from_unsorted(set_of_nodes.iter().map(|n| n + node_count).collect()));
@@ -167,7 +167,7 @@ impl Constructor {
     /// Duplicates all sets `l` times with increasing node offsets,
     /// and adds alignment sets connecting corresponding nodes across layers.
     pub fn extrude(mut self, l: usize) -> Constructor {
-        let mut new_sets_of_nodes = self.g.get_sets_of_nodes().clone();
+        let mut new_sets_of_nodes = self.g.get_sets_of_nodes().to_vec();
         let node_count = self.g.get_node_count();
 
         for set in self.g.get_sets_of_nodes() {

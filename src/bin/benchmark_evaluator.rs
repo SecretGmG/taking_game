@@ -8,7 +8,7 @@ use std::{
 
 fn main() {
     // Setup
-    let mut eval = Evaluator::new();
+    let eval = Evaluator::new();
 
     let cancel_flag = eval.get_cancel_flag();
     thread::spawn(move || {
@@ -20,7 +20,7 @@ fn main() {
     let start = Instant::now();
 
     for (game, maybe_expected_nimber, _) in get_test_games().into_iter().progress() {
-        let maybe_nimber = eval.get_nimber(game);
+        let maybe_nimber = eval.get_nimber(&game);
         match (maybe_nimber, maybe_expected_nimber) {
             (None, _) => println!("nimber computation failed"),
             (Some(_), None) => (),

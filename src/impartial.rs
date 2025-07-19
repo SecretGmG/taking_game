@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use super::TakingGame;
 use evaluator::Impartial;
 use sorted_vec::SortedSet;
-use union_find::{QuickFindUf, UnionByRank, UnionFind};
+use union_find::{QuickFindUf, QuickUnionUf, UnionByRank, UnionFind};
 
 impl Impartial<TakingGame> for TakingGame {
     #[cfg(feature = "no_split")]
@@ -59,12 +59,12 @@ impl Impartial<TakingGame> for TakingGame {
             let (lone_nodes, other_nodes) = self.collect_lone_nodes_and_other_nodes(set_of_nodes);
             self.append_moves_of_set(lone_nodes, other_nodes, &mut moves);
         }
-        return moves;
+        moves
     }
 }
 fn split_to_independent_sets_of_nodes(g: &TakingGame) -> Vec<Vec<SortedSet<usize>>> {
     // First, determine the maximum node index
-    let mut uf: QuickFindUf<UnionByRank> = QuickFindUf::new(g.get_node_count() + 1);
+    let mut uf: QuickUnionUf<UnionByRank> = QuickUnionUf::new(g.get_node_count() + 1);
 
     // Union all nodes in each set
     for set in g.get_sets_of_nodes() {
@@ -75,7 +75,7 @@ fn split_to_independent_sets_of_nodes(g: &TakingGame) -> Vec<Vec<SortedSet<usize
             }
         }
     }
-
+ 
     // Group sets by their component root
     let mut group_map: HashMap<usize, Vec<SortedSet<usize>>> = HashMap::new();
     for set in g.get_sets_of_nodes() {
@@ -183,18 +183,18 @@ mod test {
 
     #[test]
     fn test_many() {
-        let mut eval = Evaluator::new();
+        let eval = Evaluator::new();
         let g = Constructor::hyper_cube(2, 4);
-        assert_eq!(eval.get_nimber(g.build()), Some(0));
+        assert_eq!(eval.get_nimber(&g.build()), Some(0));
         let g = Constructor::hyper_cube(2, 3);
-        assert_eq!(eval.get_nimber(g.build()), Some(0));
+        assert_eq!(eval.get_nimber(&g.build()), Some(0));
         let g = Constructor::kayles(40);
-        assert_eq!(eval.get_nimber(g.build()), Some(1));
+        assert_eq!(eval.get_nimber(&g.build()), Some(1));
         let g = Constructor::hyper_tetrahedron(10);
-        assert_eq!(eval.get_nimber(g.build()), Some(2));
+        assert_eq!(eval.get_nimber(&g.build()), Some(2));
         let g = Constructor::triangle(4);
-        assert_eq!(eval.get_nimber(g.build()), Some(0));
+        assert_eq!(eval.get_nimber(&g.build()), Some(0));
         let g = Constructor::hyper_cuboid(vec![2, 2, 3]);
-        assert_eq!(eval.get_nimber(g.build()), Some(0));
+        assert_eq!(eval.get_nimber(&g.build()), Some(0));
     }
 }

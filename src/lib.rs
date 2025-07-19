@@ -18,6 +18,8 @@ pub use constructor::Constructor;
 /// (Grundy number) for complex taking games by modeling them as 
 /// collections of node sets.
 /// 
+/// Only `sets_of_nodes` is hashed and compared to ensure semantic identity across games.
+/// `set_indices` and `nodes` are derived/cached for efficient queries.
 #[derive(Clone, Debug)]
 pub struct TakingGame {
     /// Each element is a SortedSet of node indices representing nodes that can be 'taken' in a move.
@@ -37,10 +39,10 @@ pub struct TakingGame {
     nodes: Vec<usize>,
 }
 impl TakingGame {
-    /// Each element is a SortedSet of node indices representing a nodes that can be 'taken' in a move.
+    /// Each element is a SortedSet of node indices representing a node that can be 'taken' in a move.
     ///
-    /// These sets are canonicalized for efficency.
-    pub fn get_sets_of_nodes(&self) -> &Vec<SortedSet<usize>> {
+    /// These sets are canonicalized for efficiency.
+    pub fn get_sets_of_nodes(&self) -> &[SortedSet<usize>] {
         &self.sets_of_nodes
     }
     pub fn get_node_count(&self) -> usize {
@@ -50,7 +52,7 @@ impl TakingGame {
     ///
     /// Used to relate moves and game states to the original problem context,
     /// especially important when working with subgames derived from a parent game.
-    pub fn get_nodes(&self) -> &Vec<usize> {
+    pub fn get_nodes(&self) -> &[usize] {
         &self.nodes
     }
     /// For each node (by its canonical index), stores a vector of indices of
@@ -58,7 +60,7 @@ impl TakingGame {
     ///
     /// This is used to quickly determine which moves involve a given node,
     /// speeding up game logic like move validation and adjacency queries.
-    pub fn get_set_indices(&self) -> &Vec<Vec<usize>> {
+    pub fn get_set_indices(&self) -> &[Vec<usize>] {
         &self.set_indices
     }
 }
