@@ -93,10 +93,9 @@ checksum = "34aa73646ffb006b8f5147f3dc182bd4bcb190227ce861fc4a4844bf8e3cb2c0"
 [[package]]
 name = "evaluator"
 version = "0.1.0"
-source = "git+https://github.com/SecretGmG/impartial_analiser#520fc9a8199c13d096de6329d05fc2136fbae0ab"
+source = "git+https://github.com/SecretGmG/impartial_analiser#8c6b6783caf06d437a9c9cf40c823b2040b8e18d"
 dependencies = [
  "dashmap",
- "rayon",
  "serde",
  "sorted-vec",
 ]
@@ -279,9 +278,9 @@ dependencies = [
 
 [[package]]
 name = "redox_syscall"
-version = "0.5.13"
+version = "0.5.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0d04b7d0ee6b4a0207a0a7adb104d23ecb0b47d6beae7152d0fa34b692b29fd6"
+checksum = "de3a5d9f0aba1dbcec1cc47f0ff94a4b778fe55bca98a6dfa92e4e094e57b1c4"
 dependencies = [
  "bitflags",
 ]
@@ -343,6 +342,7 @@ dependencies = [
  "indicatif",
  "queues",
  "rand",
+ "rayon",
  "sorted-vec",
  "union-find",
 ]

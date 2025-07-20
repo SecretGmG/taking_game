@@ -2,8 +2,9 @@ use std::collections::HashMap;
 
 use super::TakingGame;
 use evaluator::Impartial;
+use rayon::iter::{ParallelBridge, ParallelIterator};
 use sorted_vec::SortedSet;
-use union_find::{QuickFindUf, QuickUnionUf, UnionByRank, UnionFind};
+use union_find::{QuickUnionUf, UnionByRank, UnionFind};
 
 impl Impartial<TakingGame> for TakingGame {
     #[cfg(feature = "no_split")]
@@ -53,13 +54,14 @@ impl Impartial<TakingGame> for TakingGame {
     /// This is exponential in the number of nodes per move (O(2ⁿ)). A panic is triggered
     /// for sets with more than 128 nodes.
     fn get_moves(&self) -> Vec<TakingGame> {
-        let mut moves = vec![];
-
-        for set_of_nodes in &self.sets_of_nodes {
-            let (lone_nodes, other_nodes) = self.collect_lone_nodes_and_other_nodes(set_of_nodes);
-            self.append_moves_of_set(lone_nodes, other_nodes, &mut moves);
-        }
-        moves
+        self.sets_of_nodes
+            .iter()
+            .flat_map(|set_of_nodes| {
+                let (lone_nodes, other_nodes) =
+                    self.collect_lone_nodes_and_other_nodes(set_of_nodes);
+                self.get_moves_of_set(lone_nodes, other_nodes)
+            })
+            .collect()
     }
 }
 fn split_to_independent_sets_of_nodes(g: &TakingGame) -> Vec<Vec<SortedSet<usize>>> {
@@ -75,7 +77,7 @@ fn split_to_independent_sets_of_nodes(g: &TakingGame) -> Vec<Vec<SortedSet<usize
             }
         }
     }
- 
+
     // Group sets by their component root
     let mut group_map: HashMap<usize, Vec<SortedSet<usize>>> = HashMap::new();
     for set in g.get_sets_of_nodes() {
@@ -100,29 +102,25 @@ impl TakingGame {
     /// # Panics
     /// Panics if the number of non-lone nodes exceeds 128 to avoid overflow
     /// in bitmask-based enumeration.
-    fn append_moves_of_set(
-        &self,
-        lone_nodes: Vec<usize>,
-        other_nodes: Vec<usize>,
-        child_games: &mut Vec<TakingGame>,
-    ) {
+    fn get_moves_of_set(&self, lone_nodes: Vec<usize>, other_nodes: Vec<usize>) -> Vec<TakingGame> {
         let other_len = other_nodes.len();
         if other_len > 128 {
             panic!("This game is too complex!")
         }
 
         let mask_bound = 1u128 << other_len;
-        for lone_nodes_to_remove in 0..(lone_nodes.len() + 1) {
-            let start = if lone_nodes_to_remove == 0 { 1 } else { 0 };
-            for mask in start..mask_bound {
-                child_games.push(self.get_child(
-                    &lone_nodes,
-                    &other_nodes,
-                    lone_nodes_to_remove,
-                    mask,
-                ));
-            }
-        }
+        (0..(lone_nodes.len() + 1))
+            .into_iter()
+            .flat_map(|lone_nodes_to_remove| {
+                let start = if lone_nodes_to_remove == 0 { 1 } else { 0 };
+                (start..mask_bound)
+                    .into_iter()
+                    .map(move |mask| (lone_nodes_to_remove, mask))
+            })
+            .par_bridge()
+            .map(|(lone_nodes_to_remove, mask)| {
+                self.get_child(&lone_nodes, &other_nodes, lone_nodes_to_remove, mask)
+            }).collect()
     }
     /// Splits a node set into:
     /// - Lone nodes: nodes that appear in only one set.
@@ -163,7 +161,7 @@ impl TakingGame {
         self.make_move_unchecked(&mut nodes_to_remove)
     }
     /// Removes all nodes specified in the argument and returns the resulting game.
-    /// 
+    ///
     /// Preserves the original node mapping.
     pub fn make_move_unchecked(&self, nodes_to_remove: &mut SortedSet<usize>) -> TakingGame {
         TakingGame::from_sets_of_nodes_with_node_map(
@@ -171,7 +169,7 @@ impl TakingGame {
                 .iter()
                 .map(|set| util::remove_subset(set, nodes_to_remove))
                 .collect(),
-            self.nodes.clone()
+            self.nodes.clone(),
         )
     }
 }
