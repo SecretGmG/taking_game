@@ -1,8 +1,8 @@
-use std::collections::HashMap;
+use std::{collections::HashMap};
 
+use rayon::iter::{ParallelBridge, ParallelIterator};
 use super::TakingGame;
 use evaluator::Impartial;
-use rayon::iter::{ParallelBridge, ParallelIterator};
 use sorted_vec::SortedSet;
 use union_find::{QuickUnionUf, UnionByRank, UnionFind};
 
@@ -27,7 +27,7 @@ impl Impartial<TakingGame> for TakingGame {
             Some(
                 independent_sets_of_nodes
                     .into_iter()
-                    .map(|sets| TakingGame::from_sets_of_nodes(sets))
+                    .map(TakingGame::from_sets_of_nodes)
                     .collect(),
             )
         }
@@ -66,7 +66,7 @@ impl Impartial<TakingGame> for TakingGame {
 }
 fn split_to_independent_sets_of_nodes(g: &TakingGame) -> Vec<Vec<SortedSet<usize>>> {
     // First, determine the maximum node index
-    let mut uf: QuickUnionUf<UnionByRank> = QuickUnionUf::new(g.get_node_count() + 1);
+    let mut uf: QuickUnionUf<UnionByRank> = QuickUnionUf::new(g.get_node_count());
 
     // Union all nodes in each set
     for set in g.get_sets_of_nodes() {
@@ -107,17 +107,16 @@ impl TakingGame {
         if other_len > 128 {
             panic!("This game is too complex!")
         }
-
         let mask_bound = 1u128 << other_len;
         (0..(lone_nodes.len() + 1))
             .into_iter()
             .flat_map(|lone_nodes_to_remove| {
+                // mask == 0 and lone_nodes_to_remove == 0 => empty move, which is illegal
                 let start = if lone_nodes_to_remove == 0 { 1 } else { 0 };
                 (start..mask_bound)
                     .into_iter()
                     .map(move |mask| (lone_nodes_to_remove, mask))
             })
-            .par_bridge()
             .map(|(lone_nodes_to_remove, mask)| {
                 self.get_child(&lone_nodes, &other_nodes, lone_nodes_to_remove, mask)
             }).collect()
