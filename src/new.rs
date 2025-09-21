@@ -1,12 +1,8 @@
-use sorted_vec::SortedSet;
 use super::{util, TakingGame};
+use sorted_vec::SortedSet;
 use std::cmp::Ordering;
 
 impl TakingGame {
-    #[cfg(feature = "no_sort")]
-    const MAX_SORT_STEPS: usize = 0;
-
-    #[cfg(not(feature = "no_sort"))]
     const MAX_SORT_STEPS: usize = 256;
 
     #[allow(dead_code)]
@@ -114,7 +110,7 @@ impl TakingGame {
         mut sets_of_nodes: Vec<SortedSet<usize>>,
         mut nodes: Vec<usize>,
     ) -> (Vec<SortedSet<usize>>, Vec<usize>, Vec<Vec<usize>>) {
-        Self::sort_sets_of_nodes_by_indices(&mut sets_of_nodes);
+        Self::sort_sets_of_nodes_by_indices(sets_of_nodes.as_mut_slice());
         let mut set_indices = Self::generate_set_indices(&sets_of_nodes, nodes.len());
 
         for _ in 0..Self::MAX_SORT_STEPS {
@@ -123,7 +119,7 @@ impl TakingGame {
                 return (sets_of_nodes, nodes, set_indices);
             }
             Self::apply_permutation(&mut sets_of_nodes, &mut nodes, &permutation);
-            Self::sort_sets_of_nodes_by_indices(&mut sets_of_nodes);
+            Self::sort_sets_of_nodes_by_indices(sets_of_nodes.as_mut_slice());
             set_indices = Self::generate_set_indices(&sets_of_nodes, nodes.len());
         }
         (sets_of_nodes, nodes, set_indices)
@@ -131,11 +127,7 @@ impl TakingGame {
     /// Apply a node permutation to the sets and nodes.
     ///
     /// Re-indexes each node in sets according to permutation.
-    fn apply_permutation(
-        sets: &mut Vec<SortedSet<usize>>,
-        nodes: &mut Vec<usize>,
-        perm: &Vec<usize>,
-    ) {
+    fn apply_permutation(sets: &mut [SortedSet<usize>], nodes: &mut Vec<usize>, perm: &[usize]) {
         for set in sets.iter_mut() {
             let mut new_set: Vec<usize> = set.iter().map(|&x| perm[x]).collect();
             new_set.sort_unstable();
@@ -148,22 +140,22 @@ impl TakingGame {
         *nodes = new_nodes;
     }
     /// Lexicographically sorts the list of sets, assuming each set is already sorted
-    fn sort_sets_of_nodes_by_indices(sets_of_nodes: &mut Vec<SortedSet<usize>>) {
+    fn sort_sets_of_nodes_by_indices(sets_of_nodes: &mut [SortedSet<usize>]) {
         sets_of_nodes.sort_by(|set1, set2| util::compare_sorted(set1, set2));
     }
     /// Generate the permutation mapping that orders nodes by their set membership.
     ///
     /// This orders nodes by lex order of their set indices, then inverts to a permutation.
-    fn generate_index_mapping(set_indices: &Vec<Vec<usize>>, node_count: usize) -> Vec<usize> {
+    fn generate_index_mapping(set_indices: &[Vec<usize>], node_count: usize) -> Vec<usize> {
         let mut inverse_mapping: Vec<usize> = (0..node_count).collect();
-        inverse_mapping.sort_by(|a, b| Self::node_comparer(*a, *b, &set_indices));
+        inverse_mapping.sort_by(|a, b| Self::node_comparer(*a, *b, set_indices));
         util::inverse_permutation(inverse_mapping)
     }
-    fn node_comparer(a: usize, b: usize, set_indices: &Vec<Vec<usize>>) -> Ordering {
+    fn node_comparer(a: usize, b: usize, set_indices: &[Vec<usize>]) -> Ordering {
         util::compare_sorted(&set_indices[a], &set_indices[b])
     }
     fn generate_set_indices(
-        sets_of_nodes: &Vec<SortedSet<usize>>,
+        sets_of_nodes: &[SortedSet<usize>],
         node_count: usize,
     ) -> Vec<Vec<usize>> {
         let mut node_to_sets: Vec<Vec<usize>> = vec![vec![]; node_count];

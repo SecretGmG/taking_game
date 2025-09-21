@@ -1,7 +1,7 @@
 use sorted_vec::SortedSet;
 use std::cmp::Ordering;
 
-use crate::{TakingGame, Constructor};
+use crate::{Constructor, TakingGame};
 
 pub fn compare_sorted<T: Ord>(vec1: &[T], vec2: &[T]) -> Ordering {
     match vec1.len().cmp(&vec2.len()) {
@@ -16,7 +16,7 @@ pub fn compare_sorted<T: Ord>(vec1: &[T], vec2: &[T]) -> Ordering {
             Ordering::Equal => (),
         }
     }
-    return Ordering::Equal;
+    Ordering::Equal
 }
 ///retures true if a and b share any elements
 pub fn have_common_element(a: &SortedSet<usize>, b: &SortedSet<usize>) -> bool {
@@ -32,7 +32,7 @@ pub fn have_common_element(a: &SortedSet<usize>, b: &SortedSet<usize>) -> bool {
             return true;
         }
     }
-    return false;
+    false
 }
 ///calculates the inverse permutation of a given input permutation
 ///undefined behaviour if the input is not a permutation
@@ -41,7 +41,7 @@ pub fn inverse_permutation(refrences: Vec<usize>) -> Vec<usize> {
     for i in 0..refrences.len() {
         perm[refrences[i]] = i;
     }
-    return perm;
+    perm
 }
 
 pub fn is_subset(set1: &SortedSet<usize>, set2: &SortedSet<usize>) -> bool {
@@ -117,7 +117,7 @@ pub fn remove_subset(set1: &SortedSet<usize>, set2: &SortedSet<usize>) -> Sorted
             }
         }
     }
-    return r;
+    r
 }
 
 pub fn get_test_games() -> Vec<(TakingGame, Option<usize>, Option<bool>)> {

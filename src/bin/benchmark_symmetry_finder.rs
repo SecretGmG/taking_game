@@ -1,6 +1,6 @@
 use indicatif::ProgressIterator;
-use taking_game::util::get_test_games;
 use std::time::Instant;
+use taking_game::util::get_test_games;
 
 fn main() {
     // Time measurement
@@ -8,7 +8,7 @@ fn main() {
 
     for (game, _, maybe_expected_symmetry) in get_test_games().into_iter().progress() {
         if let Some(expected_symmetry) = maybe_expected_symmetry {
-            if !(game.find_symmetry().is_some() == expected_symmetry) {
+            if game.find_symmetry().is_some() != expected_symmetry {
                 println!("finding symmetry failed");
             }
         }

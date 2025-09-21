@@ -1,37 +1,11 @@
-use std::{collections::HashMap};
+use std::collections::HashMap;
 
-use rayon::iter::{ParallelBridge, ParallelIterator};
 use super::TakingGame;
 use evaluator::Impartial;
 use sorted_vec::SortedSet;
 use union_find::{QuickUnionUf, UnionByRank, UnionFind};
 
-impl Impartial<TakingGame> for TakingGame {
-    #[cfg(feature = "no_split")]
-    fn get_parts(&self) -> Option<Vec<TakingGame>> {
-        None
-    }
-    /// Returns `None` if splitting is disabled via feature flag.
-    ///
-    /// Otherwise returns independent subgames by detecting connected components
-    /// of the underlying hypergraph.
-    ///
-    /// # Efficiency
-    /// Uses union-find with union by rank for fast component detection.
-    #[cfg(not(feature = "no_split"))]
-    fn get_parts(&self) -> Option<Vec<TakingGame>> {
-        let independent_sets_of_nodes = split_to_independent_sets_of_nodes(&self);
-        if independent_sets_of_nodes.len() <= 1 {
-            None
-        } else {
-            Some(
-                independent_sets_of_nodes
-                    .into_iter()
-                    .map(TakingGame::from_sets_of_nodes)
-                    .collect(),
-            )
-        }
-    }
+impl Impartial for TakingGame {
     /// Provides an upper bound on the nimber of the game.
     ///
     /// This returns 0 if a symmetry is found (indicating potential simplification),
@@ -53,13 +27,19 @@ impl Impartial<TakingGame> for TakingGame {
     /// # Efficiency
     /// This is exponential in the number of nodes per move (O(2ⁿ)). A panic is triggered
     /// for sets with more than 128 nodes.
-    fn get_moves(&self) -> Vec<TakingGame> {
+    fn get_split_moves(&self) -> Vec<Vec<TakingGame>> {
         self.sets_of_nodes
             .iter()
             .flat_map(|set_of_nodes| {
                 let (lone_nodes, other_nodes) =
                     self.collect_lone_nodes_and_other_nodes(set_of_nodes);
                 self.get_moves_of_set(lone_nodes, other_nodes)
+            })
+            .map(|_move| {
+                split_to_independent_sets_of_nodes(&_move)
+                    .into_iter()
+                    .map(TakingGame::from_sets_of_nodes)
+                    .collect()
             })
             .collect()
     }
@@ -73,7 +53,7 @@ fn split_to_independent_sets_of_nodes(g: &TakingGame) -> Vec<Vec<SortedSet<usize
         let mut iter = set.iter();
         if let Some(&first) = iter.next() {
             for &node in iter {
-                uf.union(first.into(), node.into());
+                uf.union(first, node);
             }
         }
     }
@@ -109,17 +89,15 @@ impl TakingGame {
         }
         let mask_bound = 1u128 << other_len;
         (0..(lone_nodes.len() + 1))
-            .into_iter()
             .flat_map(|lone_nodes_to_remove| {
                 // mask == 0 and lone_nodes_to_remove == 0 => empty move, which is illegal
                 let start = if lone_nodes_to_remove == 0 { 1 } else { 0 };
-                (start..mask_bound)
-                    .into_iter()
-                    .map(move |mask| (lone_nodes_to_remove, mask))
+                (start..mask_bound).map(move |mask| (lone_nodes_to_remove, mask))
             })
             .map(|(lone_nodes_to_remove, mask)| {
                 self.get_child(&lone_nodes, &other_nodes, lone_nodes_to_remove, mask)
-            }).collect()
+            })
+            .collect()
     }
     /// Splits a node set into:
     /// - Lone nodes: nodes that appear in only one set.
@@ -128,7 +106,7 @@ impl TakingGame {
     /// Used to optimize move enumeration.
     fn collect_lone_nodes_and_other_nodes(
         &self,
-        set_of_nodes: &Vec<usize>,
+        set_of_nodes: &[usize],
     ) -> (Vec<usize>, Vec<usize>) {
         set_of_nodes
             .iter()
@@ -141,8 +119,8 @@ impl TakingGame {
     /// A prefix of `lone_nodes` is also removed.
     fn get_child(
         &self,
-        lone_nodes: &Vec<usize>,
-        other_nodes: &Vec<usize>,
+        lone_nodes: &[usize],
+        other_nodes: &[usize],
         lone_nodes_to_remove: usize,
         mask: u128,
     ) -> TakingGame {

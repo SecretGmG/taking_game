@@ -18,7 +18,7 @@ queues = "1.1.0"
 sorted-vec = "0.8.6"
 indicatif = "0.18.0"
 union-find = "0.4.3"
-evaluator = { git = "https://github.com/SecretGmG/impartial_analiser", version = "0.1.0" }
+evaluator = { git = "https://github.com/SecretGmG/impartial_analiser", version = "0.2.0" }
 rayon = "1.10.0"
 
 [features]
@@ -26,5 +26,3 @@ default = ["symmetry_finder"]
 
 # Each can be individually toggled
 symmetry_finder = []
-no_sort = []
-no_split = []
