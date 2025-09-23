@@ -20,6 +20,7 @@ indicatif = "0.18.0"
 union-find = "0.4.3"
 evaluator = { git = "https://github.com/SecretGmG/impartial_analiser", version = "0.2.0" }
 rayon = "1.10.0"
+itertools = "0.14.0"
 
 [features]
 default = ["symmetry_finder"]

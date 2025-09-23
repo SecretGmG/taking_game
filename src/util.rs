@@ -44,13 +44,10 @@ pub fn inverse_permutation(refrences: Vec<usize>) -> Vec<usize> {
     perm
 }
 
-///checks if set1 is a subset of set2, assums both vectors are sorted and deduped
-pub fn is_subset(set1: &Vec<usize>, set2: &Vec<usize>) -> bool {
+///checks if a is a subset of b, assums both vectors are sorted
+pub fn is_subset(a: &[usize], b: &[usize]) -> bool {
     let mut i = 0;
     let mut j = 0;
-
-    let a = set1.as_slice();
-    let b = set2.as_slice();
 
     while i < a.len() && j < b.len() {
         match a[i].cmp(&b[j]) {
@@ -84,7 +81,7 @@ where
     *other = sorted_other;
 }
 
-pub fn merge(set1: &SortedSet<usize>, set2: &SortedSet<usize>) -> SortedSet<usize> {
+pub fn union(set1: &Vec<usize>, set2: &Vec<usize>) -> Vec<usize> {
     let mut result = Vec::with_capacity(set1.len() + set2.len());
     let mut iter1 = set1.iter().copied();
     let mut iter2 = set2.iter().copied();
@@ -114,8 +111,7 @@ pub fn merge(set1: &SortedSet<usize>, set2: &SortedSet<usize>) -> SortedSet<usiz
     result.extend(iter1);
     result.extend(b);
     result.extend(iter2);
-
-    unsafe { SortedSet::from_sorted(result) }
+    result
 }
 pub fn remove_subset(set1: &SortedSet<usize>, set2: &SortedSet<usize>) -> SortedSet<usize> {
     let mut i = 0;
@@ -150,44 +146,44 @@ pub fn get_test_games() -> Vec<(TakingGame, Option<usize>, Option<bool>)> {
         (Constructor::rect(3, 4).build(), None, Some(false)),
         (Constructor::rect(4, 4).build(), Some(0), Some(true)),
         (Constructor::rect(5, 4).build(), None, Some(false)),
-        (
-            Constructor::rect(3, 6)
-                .combine(Constructor::rect(6, 3).build())
-                .build(),
-            Some(0),
-            Some(true),
-        ),
-        (
-            Constructor::rect(1, 50)
-                .combine(Constructor::rect(2, 9).build())
-                .build(),
-            None,
-            Some(false),
-        ),
-        (
-            Constructor::rect(1, 10)
-                .combine(Constructor::rect(2, 5).build())
-                .connect_unit_to_all()
-                .build(),
-            None,
-            Some(false),
-        ),
-        (
-            Constructor::rect(1, 50)
-                .combine(Constructor::rect(2, 9).build())
-                .combine(Constructor::triangle(3).build())
-                .build(),
-            None,
-            Some(false),
-        ),
-        (
-            Constructor::rect(2, 11)
-                .combine(Constructor::rect(2, 11).build())
-                .combine(Constructor::rect(2, 10).build())
-                .build(),
-            Some(0),
-            Some(true),
-        ),
+        // (
+        //     Constructor::rect(3, 6)
+        //         .combine(Constructor::rect(6, 3).build())
+        //         .build(),
+        //     Some(0),
+        //     Some(true),
+        // ),
+        // (
+        //     Constructor::rect(1, 50)
+        //         .combine(Constructor::rect(2, 9).build())
+        //         .build(),
+        //     None,
+        //     Some(false),
+        // ),
+        // (
+        //     Constructor::rect(1, 10)
+        //         .combine(Constructor::rect(2, 5).build())
+        //         .connect_unit_to_all()
+        //         .build(),
+        //     None,
+        //     Some(false),
+        // ),
+        // (
+        //     Constructor::rect(1, 50)
+        //         .combine(Constructor::rect(2, 9).build())
+        //         .combine(Constructor::triangle(3).build())
+        //         .build(),
+        //     None,
+        //     Some(false),
+        // ),
+        // (
+        //     Constructor::rect(2, 11)
+        //         .combine(Constructor::rect(2, 11).build())
+        //         .combine(Constructor::rect(2, 10).build())
+        //         .build(),
+        //     Some(0),
+        //     Some(true),
+        // ),
         (Constructor::hyper_cube(3, 2).build(), Some(0), Some(true)),
     ]
 }

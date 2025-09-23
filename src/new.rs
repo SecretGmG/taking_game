@@ -1,5 +1,4 @@
 use super::{util, TakingGame};
-use rayon::vec;
 use std::{collections::HashMap, mem};
 use union_find::{QuickUnionUf, UnionByRank, UnionFind};
 
@@ -17,30 +16,24 @@ impl TakingGame {
             edge_structure_partitions: Vec::new(),
             node_structure_partitions: Vec::new(),
             nodes: Vec::new(),
-            unconnected_nodes: Vec::new(),
+            //unconnected_nodes: Vec::new(),
         }
     }
     pub fn from_hyperedges(hyperedges: Vec<Vec<usize>>) -> Vec<TakingGame> {
-        return Self::from_hyperedges_with_nodes(hyperedges, Vec::new(), Vec::new());
+        Self::from_hyperedges_with_nodes(hyperedges, Vec::new()) //, Vec::new());
     }
     pub fn from_hyperedges_with_nodes(
         hyperedges: Vec<Vec<usize>>,
         nodes: Vec<usize>,
-        unconnected_nodes: Vec<Vec<usize>>,
+        //unconnected_nodes: Vec<Vec<usize>>,
     ) -> Vec<TakingGame> {
         let mut g = TakingGame {
             hyperedges,
             edge_structure_partitions: Vec::new(),
             node_structure_partitions: Vec::new(),
             nodes,
-            unconnected_nodes,
         };
-
-        // start by removing everything that is not necessary
         g.remove_redundant_hyperedges();
-        g.absorb_unconnected_nodes();
-
-        //now split into independent parts
         g.get_parts()
     }
     /// Normalize node indices by flattening and mapping original node labels
@@ -55,31 +48,38 @@ impl TakingGame {
         all_nodes.sort_unstable();
         all_nodes.dedup();
 
-        if *all_nodes.last().unwrap_or(&0) == all_nodes.len() - 1 {
-            return;
-        }
+        let edges_are_compact = all_nodes
+            .last()
+            .is_some_and(|last| last + 1 == all_nodes.len());
 
         let mut node_map = HashMap::new();
-        for (i, n) in all_nodes.iter().enumerate() {
-            node_map.insert(n, i);
-        }
-
-        for e in self.hyperedges.iter_mut() {
-            for n in e.iter_mut() {
-                *n = *node_map.get(n).expect("all nodes should be in node map");
+        if !edges_are_compact {
+            for (i, n) in all_nodes.iter().enumerate() {
+                node_map.insert(n, i);
             }
-            e.sort_unstable();
-            e.dedup();
+
+            for e in self.hyperedges.iter_mut() {
+                (0..e.len()).for_each(|i| {
+                    e[i] = *node_map
+                        .get(&e[i])
+                        .expect("all nodes should be in node map");
+                });
+                e.sort_unstable();
+                e.dedup();
+            }
         }
 
-        if self.nodes.is_empty() {
+        if self.nodes.is_empty() || all_nodes.is_empty() {
             self.nodes = all_nodes;
+        } else if edges_are_compact {
+            self.nodes.truncate(all_nodes.len());
         } else {
-            let enumerator = std::mem::replace(&mut self.nodes, vec![0; all_nodes.len()])
-                .into_iter()
-                .enumerate();
-            for (i, label) in enumerator {
-                self.nodes[*node_map.get(&i).expect("all nodes should be in node map")] = label;
+            let old_nodes = mem::take(&mut self.nodes);
+            self.nodes = vec![0; all_nodes.len()];
+            for (old_index, old_label) in old_nodes.into_iter().enumerate() {
+                self.nodes[*node_map
+                    .get(&old_index)
+                    .expect("all nodes should be in node map")] = old_label
             }
         }
     }
@@ -87,65 +87,29 @@ impl TakingGame {
     /// Sorts and dedups hyperedges
     fn remove_redundant_hyperedges(&mut self) {
         self.flatten_nodes();
+        self.hyperedges.sort_by_key(|e| e.len());
 
-        util::sort_together_by_key(&mut self.hyperedges, &mut self.unconnected_nodes, |e| {
-            e.len()
-        });
+        let mut hyperedges_to_remove = Vec::new();
 
-        let mut retained_hyperedges = Vec::new();
-        let mut retained_unconnected_nodes = Vec::new();
-
-        if self.unconnected_nodes.is_empty() {
-            self.unconnected_nodes = vec![Vec::new(); self.hyperedges.len()]
-        }
-
-        'outer: for i in 0..self.hyperedges.len() {
-            let node_count = self.unconnected_nodes[i].len();
-            for j in (i + 1)..self.hyperedges.len() {
-                if node_count == 0 && util::is_subset(&self.hyperedges[i], &self.hyperedges[j]) {
-                    continue 'outer;
-                }
-            }
-            if !self.hyperedges[i].is_empty() || node_count != 0 {
-                retained_hyperedges.push(std::mem::take(&mut self.hyperedges[i]));
-                retained_unconnected_nodes.push(std::mem::take(&mut self.unconnected_nodes[i]));
-            }
-        }
-        if self.hyperedges.len() != retained_hyperedges.len() {
-            self.hyperedges = retained_hyperedges;
-            self.unconnected_nodes = retained_unconnected_nodes;
-            self.flatten_nodes();
-        }
-    }
-    // identifies nodes that are only contained in 1 hyperedge, these are then
-    // removed and noted in unconnected_node_counts
-    // needs initilized unconnected_nodes vector!
-    fn absorb_unconnected_nodes(&mut self) {
-        let mut edges_of_lone_nodes: Vec<Option<Option<usize>>> = vec![None; self.nodes.len()];
-        for (e, nodes) in self.hyperedges.iter().enumerate() {
-            for n in nodes {
-                match edges_of_lone_nodes[*n] {
-                    Some(_) => edges_of_lone_nodes[*n] = Some(None),
-                    None => edges_of_lone_nodes[*n] = Some(Some(e)),
+        for i in 0..self.hyperedges.len() {
+            'inner: for j in (i + 1)..self.hyperedges.len() {
+                if util::is_subset(&self.hyperedges[i], &self.hyperedges[j]) {
+                    hyperedges_to_remove.push(i);
+                    break 'inner;
                 }
             }
         }
-        let mut removed_nodes: usize = 0;
-        for (n, maybe_e) in edges_of_lone_nodes.iter().enumerate() {
-            if let Some(e) = maybe_e.expect("all nodes should have been looked at") {
-                let node_index = self.hyperedges[e]
-                    .binary_search(&n)
-                    .expect("hyperedge should contain this node, hyperedge should be sorted");
-
-                self.hyperedges[e].remove(node_index);
-                self.unconnected_nodes[e].push(self.nodes[n]);
-                removed_nodes += 1;
-            }
+        if hyperedges_to_remove.is_empty() {
+            return;
         }
-        if removed_nodes > 0 {
+        for e in hyperedges_to_remove.iter().rev() {
+            self.hyperedges.remove(*e);
+        }
+        if !hyperedges_to_remove.is_empty() {
             self.flatten_nodes();
         }
     }
+
     pub fn get_parts(self) -> Vec<TakingGame> {
         let mut uf: QuickUnionUf<UnionByRank> = QuickUnionUf::new(self.nodes.len());
 
@@ -159,18 +123,20 @@ impl TakingGame {
             }
         }
 
-        // No new redundancies will be created!
         let mut group_map: HashMap<usize, TakingGame> = HashMap::new();
-        for (e, unconnected_nodes) in self.hyperedges.into_iter().zip(self.unconnected_nodes) {
-            if let Some(&representative) = e.iter().next() {
+        for e in self.hyperedges.into_iter() {
+            if let Some(&representative) = e.first() {
                 let root = uf.find(representative);
-                let g = group_map.entry(root).or_insert_with(|| {
-                    let mut default = TakingGame::empty();
-                    default.nodes = self.nodes.clone();
-                    default
-                });
-                g.hyperedges.push(e);
-                g.unconnected_nodes.push(unconnected_nodes);
+
+                match group_map.get_mut(&root) {
+                    Some(g) => g.hyperedges.push(e),
+                    None => {
+                        let mut default = TakingGame::empty();
+                        default.hyperedges.push(e);
+                        default.nodes = self.nodes.clone();
+                        group_map.insert(root, default);
+                    }
+                }
             }
         }
 
@@ -227,12 +193,12 @@ impl TakingGame {
     /// next block to 2, etc.
     fn fill_partition_map(buff: &mut [usize], partitions: &[usize]) {
         let mut p = 1;
-        for i in 0..buff.len() {
+        (0..buff.len()).for_each(|i| {
             if partitions[p] == i {
                 p += 1;
             }
             buff[i] = p;
-        }
+        });
     }
     fn fill_inverse_permutation(buff: &mut [usize], permutation: &[usize]) {
         for i in 0..permutation.len() {
@@ -258,8 +224,8 @@ impl TakingGame {
         let mut inv = vec![0; permutation.len()];
         Self::fill_inverse_permutation(&mut inv, permutation);
         for e in self.hyperedges.iter_mut() {
-            for n in e.iter_mut() {
-                *n = inv[*n];
+            for i in 0..e.len() {
+                e[i] = inv[e[i]];
             }
             e.sort();
         }
@@ -273,12 +239,8 @@ impl TakingGame {
 
         let dual = self.hypergraph_dual();
         let initial_node_keys: Vec<usize> = dual.iter().map(|edges| edges.len()).collect();
-        let initial_edge_keys: Vec<(usize, usize)> = self
-            .hyperedges
-            .iter()
-            .zip(self.unconnected_nodes.iter())
-            .map(|(e, unconnected)| (unconnected.len(), e.len()))
-            .collect();
+        let initial_edge_keys: Vec<usize> =
+            self.hyperedges.iter().map(|nodes| nodes.len()).collect();
 
         self.edge_structure_partitions = vec![0, self.hyperedges.len()];
         self.node_structure_partitions = vec![0, self.nodes.len()];
@@ -297,15 +259,15 @@ impl TakingGame {
         self.build_structural_eq_classes(&mut edge_permutation, &mut node_permutation, &dual);
         self.sort_canonically(&mut edge_permutation, &mut node_permutation, &dual);
 
-        self.apply_edge_permutation(&mut edge_permutation);
-        self.apply_node_permutation(&mut node_permutation);
+        self.apply_edge_permutation(&edge_permutation);
+        self.apply_node_permutation(&node_permutation);
     }
 
     fn build_structural_eq_classes(
         &mut self,
-        edge_permutation: &mut Vec<usize>,
-        node_permutation: &mut Vec<usize>,
-        dual: &Vec<Vec<usize>>,
+        edge_permutation: &mut [usize],
+        node_permutation: &mut [usize],
+        dual: &[Vec<usize>],
     ) {
         let mut nr_partitions =
             self.edge_structure_partitions.len() + self.node_structure_partitions.len();
@@ -321,10 +283,7 @@ impl TakingGame {
 
         loop {
             Self::fill_partition_map(&mut node_partition_map, &self.node_structure_partitions);
-            Self::fill_partition_map(&mut edge_partition_map, &self.edge_structure_partitions);
-
-            Self::fill_inverse_permutation(&mut inv_node_permutation, &node_permutation);
-            Self::fill_inverse_permutation(&mut inv_edge_permutation, &edge_permutation);
+            Self::fill_inverse_permutation(&mut inv_node_permutation, node_permutation);
 
             for (i, n) in dual.iter().enumerate() {
                 node_keys[i].clear();
@@ -334,6 +293,16 @@ impl TakingGame {
                 );
                 node_keys[i].sort_unstable();
             }
+
+            Self::sort_refine_partitions_by_key(
+                &mut self.node_structure_partitions,
+                node_permutation,
+                &node_keys,
+            );
+
+            Self::fill_partition_map(&mut edge_partition_map, &self.edge_structure_partitions);
+            Self::fill_inverse_permutation(&mut inv_edge_permutation, edge_permutation);
+
             for (i, e) in self.hyperedges.iter().enumerate() {
                 edge_keys[i].clear();
                 edge_keys[i].extend(
@@ -344,16 +313,10 @@ impl TakingGame {
             }
 
             Self::sort_refine_partitions_by_key(
-                &mut self.node_structure_partitions,
-                node_permutation,
-                &node_keys,
-            );
-            Self::sort_refine_partitions_by_key(
                 &mut self.edge_structure_partitions,
                 edge_permutation,
                 &edge_keys,
             );
-
             let new_nr_partitions =
                 self.edge_structure_partitions.len() + self.node_structure_partitions.len();
             if new_nr_partitions == nr_partitions {
@@ -366,7 +329,7 @@ impl TakingGame {
         &mut self,
         edge_permutation: &mut Vec<usize>,
         node_permutation: &mut Vec<usize>,
-        dual: &Vec<Vec<usize>>,
+        dual: &[Vec<usize>],
     ) {
         const MAX_ITER: usize = 8;
 
@@ -383,29 +346,29 @@ impl TakingGame {
             old_edge.copy_from_slice(edge_permutation);
             old_node.copy_from_slice(node_permutation);
 
-            Self::fill_inverse_permutation(&mut inv_node_permutation, &node_permutation);
-            Self::fill_inverse_permutation(&mut inv_edge_permutation, &edge_permutation);
+            Self::fill_inverse_permutation(&mut inv_node_permutation, node_permutation);
 
             for (i, n) in dual.iter().enumerate() {
                 node_keys[i].clear();
                 node_keys[i].extend(n.iter().map(|edge| inv_edge_permutation[*edge]));
                 node_keys[i].sort_unstable();
             }
+            Self::sort_partitions_by_key(
+                &self.node_structure_partitions,
+                node_permutation,
+                &node_keys,
+            );
+
+            Self::fill_inverse_permutation(&mut inv_edge_permutation, edge_permutation);
             for (i, e) in self.hyperedges.iter().enumerate() {
                 edge_keys[i].clear();
                 edge_keys[i].extend(e.iter().map(|node| inv_node_permutation[*node]));
                 edge_keys[i].sort_unstable();
             }
-
             Self::sort_partitions_by_key(
                 &self.edge_structure_partitions,
                 edge_permutation,
                 &edge_keys,
-            );
-            Self::sort_partitions_by_key(
-                &self.node_structure_partitions,
-                node_permutation,
-                &node_keys,
             );
 
             if &old_edge == edge_permutation && &old_node == node_permutation {
@@ -413,56 +376,13 @@ impl TakingGame {
             }
         }
     }
-    // Apply a node permutation to the sets and nodes.
-    //
-    // Re-indexes each node in sets according to permutation.
-    // fn apply_permutation(sets: &mut [SortedSet<usize>], nodes: &mut Vec<usize>, perm: &[usize]) {
-    //     for set in sets.iter_mut() {
-    //         let mut new_set: Vec<usize> = set.iter().map(|&x| perm[x]).collect();
-    //         new_set.sort_unstable();
-    //         *set = unsafe { SortedSet::from_sorted(new_set) };
-    //     }
-    //     let mut new_nodes = vec![0; nodes.len()];
-    //     for i in 0..nodes.len() {
-    //         new_nodes[perm[i]] = nodes[i];
-    //     }
-    //     *nodes = new_nodes;
-    // }
-    // /// Lexicographically sorts the list of sets, assuming each set is already sorted
-    // fn sort_sets_of_nodes_by_indices(sets_of_nodes: &mut [SortedSet<usize>]) {
-    //     sets_of_nodes.sort_by(|set1, set2| util::compare_sorted(set1, set2));
-    // }
-    // /// Generate the permutation mapping that orders nodes by their set membership.
-    // ///
-    // /// This orders nodes by lex order of their set indices, then inverts to a permutation.
-    // fn generate_index_mapping(set_indices: &[Vec<usize>], node_count: usize) -> Vec<usize> {
-    //     let mut inverse_mapping: Vec<usize> = (0..node_count).collect();
-    //     inverse_mapping.sort_by(|a, b| Self::node_comparer(*a, *b, set_indices));
-    //     util::inverse_permutation(inverse_mapping)
-    // }
-    // fn node_comparer(a: usize, b: usize, set_indices: &[Vec<usize>]) -> Ordering {
-    //     util::compare_sorted(&set_indices[a], &set_indices[b])
-    // }
-    // fn generate_set_indices(
-    //     sets_of_nodes: &[SortedSet<usize>],
-    //     node_count: usize,
-    // ) -> Vec<Vec<usize>> {
-    //     let mut node_to_sets: Vec<Vec<usize>> = vec![vec![]; node_count];
-    //
-    //     for (set_index, set) in sets_of_nodes.iter().enumerate() {
-    //         for &node in set.iter() {
-    //             node_to_sets[node].push(set_index);
-    //         }
-    //     }
-    //     node_to_sets
-    //}
 }
 #[cfg(test)]
 mod tests {
     #[test]
     fn test_canonization() {
-        let game1 = TakingGame::from_hyperedges(vec![vec![2, 4], vec![0, 4], vec![0, 2]]);
-        let game2 = TakingGame::from_hyperedges(vec![vec![1, 3], vec![3, 5], vec![1, 5]]);
+        let game1 = TakingGame::from_hyperedges(vec![vec![5, 2, 4], vec![0, 4], vec![0, 2]]);
+        let game2 = TakingGame::from_hyperedges(vec![vec![8, 1, 3], vec![3, 5], vec![1, 5]]);
         assert_eq!(game1, game2); // should be true due to canonization
     }
 
@@ -493,22 +413,23 @@ mod tests {
         let mut new_node_10: usize = 0;
         let mut new_node_20: usize = 0;
         let mut new_node_50: usize = 0;
-        for i in 0..game.nodes.len() {
-            let sets: Vec<usize> = vec![]; //e.get_set_indices()[i];
-                                           // 10 is the only node that is in one set  and a set that has size 2
-            if sets.len() == 1 && game.hyperedges[sets[0]].len() == 2 {
+
+        let dual = game.hypergraph_dual();
+
+        for (i, edges) in dual.iter().enumerate() {
+            if edges.len() == 1 && game.hyperedges[edges[0]].len() == 2 {
                 new_node_10 = i;
             }
             // 20 is the only one in two sets of size 3
-            if sets.len() == 2
-                && game.hyperedges[sets[0]].len() == 3
-                && game.hyperedges[sets[1]].len() == 3
+            if edges.len() == 2
+                && game.hyperedges[edges[0]].len() == 3
+                && game.hyperedges[edges[1]].len() == 3
             {
                 new_node_20 = i;
             }
             // 50 is the only node that is on two sets and a set that has size 2
-            if sets.len() == 2
-                && (game.hyperedges[sets[0]].len() == 2 || game.hyperedges[sets[1]].len() == 2)
+            if edges.len() == 2
+                && (game.hyperedges[edges[0]].len() == 2 || game.hyperedges[edges[1]].len() == 2)
             {
                 new_node_50 = i;
             }
@@ -545,21 +466,18 @@ mod tests {
                 e.remove(index);
             }
         }
-        let game = TakingGame::from_hyperedges_with_nodes(
-            new_hyperedges,
-            parent_game.nodes,
-            parent_game.unconnected_nodes,
-        )
-        .into_iter()
-        .next()
-        .unwrap();
+        let game = TakingGame::from_hyperedges_with_nodes(new_hyperedges, parent_game.nodes)
+            .into_iter()
+            .next()
+            .unwrap();
 
         let mut new_node_10: usize = 0;
         let mut new_node_20: usize = 0;
         let mut new_node_50: usize = 0;
-        for i in 0..game.nodes.len() {
-            let edges: Vec<usize> = vec![]; //&game.get_set_indices()[i];
 
+        let dual = game.hypergraph_dual();
+
+        for (i, edges) in dual.iter().enumerate() {
             // 10 is the only node that is in one set  and a set that has size 2
             if edges.len() == 1 && game.hyperedges[edges[0]].len() == 2 {
                 new_node_10 = i;
