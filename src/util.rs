@@ -44,7 +44,8 @@ pub fn inverse_permutation(refrences: Vec<usize>) -> Vec<usize> {
     perm
 }
 
-pub fn is_subset(set1: &SortedSet<usize>, set2: &SortedSet<usize>) -> bool {
+///checks if set1 is a subset of set2, assums both vectors are sorted and deduped
+pub fn is_subset(set1: &Vec<usize>, set2: &Vec<usize>) -> bool {
     let mut i = 0;
     let mut j = 0;
 
@@ -63,6 +64,24 @@ pub fn is_subset(set1: &SortedSet<usize>, set2: &SortedSet<usize>) -> bool {
     }
 
     i == a.len()
+}
+
+pub fn sort_together_by_key<U, V, F, K>(vec: &mut Vec<U>, other: &mut Vec<V>, mut key: F)
+where
+    F: FnMut(&U) -> K,
+    K: Ord,
+{
+    if vec.is_sorted_by_key(|e| key(e)) {
+        return;
+    }
+
+    let mut pairs: Vec<(U, V)> = vec.drain(..).zip(other.drain(..)).collect();
+
+    pairs.sort_by_key(|(a, _)| key(a));
+    // Unzip back
+    let (sorted_vec, sorted_other): (Vec<_>, Vec<_>) = pairs.into_iter().unzip();
+    *vec = sorted_vec;
+    *other = sorted_other;
 }
 
 pub fn merge(set1: &SortedSet<usize>, set2: &SortedSet<usize>) -> SortedSet<usize> {

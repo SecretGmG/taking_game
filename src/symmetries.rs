@@ -220,12 +220,12 @@ impl TakingGame {
     fn get_neighbourhoods(&self) -> Vec<SortedSet<usize>> {
         let mut neighbourhoods: Vec<SortedSet<usize>> =
             vec![SortedSet::new(); self.get_node_count()];
-        (0..self.get_node_count()).for_each(|node| {
+        for node in 0..self.get_node_count() {
             for &si in &self.get_set_indices()[node] {
                 neighbourhoods[node] =
                     util::merge(&neighbourhoods[node], &self.get_sets_of_nodes()[si])
             }
-        });
+        }
         neighbourhoods
     }
 }
