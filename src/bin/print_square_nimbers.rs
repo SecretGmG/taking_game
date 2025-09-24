@@ -5,7 +5,7 @@ use taking_game::Constructor;
 
 fn main() {
     let eval = Evaluator::new();
-    println!("how many triangle nimbers do you want to see?");
+    println!("how many square nimbers do you want to see?");
     let mut input = String::new();
     stdin()
         .read_line(&mut input)
@@ -16,9 +16,8 @@ fn main() {
         .expect("could not be parsed to integer");
 
     for i in 0..max {
-        let g = Constructor::triangle(i).build();
+        let g = Constructor::rect(i, i).build();
         println!("{}:{}", i, eval.get_nimber(&g).unwrap());
         println!("Cache size {:?}", eval.get_cache_size())
     }
 }
-

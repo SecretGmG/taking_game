@@ -123,44 +123,6 @@ pub fn get_test_games() -> Vec<(TakingGame, Option<usize>, Option<bool>)> {
         (Constructor::rect(3, 4).build(), None, Some(false)),
         (Constructor::rect(4, 4).build(), Some(0), Some(true)),
         (Constructor::rect(5, 4).build(), None, Some(false)),
-        // (
-        //     Constructor::rect(3, 6)
-        //         .combine(Constructor::rect(6, 3).build())
-        //         .build(),
-        //     Some(0),
-        //     Some(true),
-        // ),
-        // (
-        //     Constructor::rect(1, 50)
-        //         .combine(Constructor::rect(2, 9).build())
-        //         .build(),
-        //     None,
-        //     Some(false),
-        // ),
-        // (
-        //     Constructor::rect(1, 10)
-        //         .combine(Constructor::rect(2, 5).build())
-        //         .connect_unit_to_all()
-        //         .build(),
-        //     None,
-        //     Some(false),
-        // ),
-        // (
-        //     Constructor::rect(1, 50)
-        //         .combine(Constructor::rect(2, 9).build())
-        //         .combine(Constructor::triangle(3).build())
-        //         .build(),
-        //     None,
-        //     Some(false),
-        // ),
-        // (
-        //     Constructor::rect(2, 11)
-        //         .combine(Constructor::rect(2, 11).build())
-        //         .combine(Constructor::rect(2, 10).build())
-        //         .build(),
-        //     Some(0),
-        //     Some(true),
-        // ),
         (Constructor::hyper_cube(3, 2).build(), Some(0), Some(true)),
     ]
 }

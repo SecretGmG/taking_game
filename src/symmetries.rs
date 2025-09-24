@@ -126,6 +126,11 @@ mod tests {
     use crate::Constructor;
 
     #[test]
+    fn test_rect_4_8() {
+        let g = Constructor::rect(4, 8).build();
+        assert!(g.find_symmetry().is_some());
+    }
+    #[test]
     fn test_hypercube_2_2() {
         let g = Constructor::hyper_cube(2, 2).build();
         assert!(g.find_symmetry().is_some());
