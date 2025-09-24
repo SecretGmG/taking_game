@@ -68,7 +68,7 @@ where
     F: FnMut(&U) -> K,
     K: Ord,
 {
-    if vec.is_sorted_by_key(|e| key(e)) {
+    if vec.is_sorted_by_key(&mut key) {
         return;
     }
 
@@ -81,10 +81,9 @@ where
     *other = sorted_other;
 }
 
-pub fn union(set1: &Vec<usize>, set2: &Vec<usize>) -> Vec<usize> {
-    let mut result = Vec::with_capacity(set1.len() + set2.len());
-    let mut iter1 = set1.iter().copied();
-    let mut iter2 = set2.iter().copied();
+pub fn union_append(buff: &mut Vec<usize>, other: &[usize]) {
+    let mut iter1 = buff.clone().into_iter();
+    let mut iter2 = other.iter().copied();
 
     let mut a = iter1.next();
     let mut b = iter2.next();
@@ -92,47 +91,25 @@ pub fn union(set1: &Vec<usize>, set2: &Vec<usize>) -> Vec<usize> {
     while let (Some(x), Some(y)) = (a, b) {
         match x.cmp(&y) {
             std::cmp::Ordering::Less => {
-                result.push(x);
+                buff.push(x);
                 a = iter1.next();
             }
             std::cmp::Ordering::Greater => {
-                result.push(y);
+                buff.push(y);
                 b = iter2.next();
             }
             std::cmp::Ordering::Equal => {
-                result.push(x);
+                buff.push(x);
                 a = iter1.next();
                 b = iter2.next();
             }
         }
     }
 
-    result.extend(a);
-    result.extend(iter1);
-    result.extend(b);
-    result.extend(iter2);
-    result
-}
-pub fn remove_subset(set1: &SortedSet<usize>, set2: &SortedSet<usize>) -> SortedSet<usize> {
-    let mut i = 0;
-    let mut j = 0;
-    let mut r = SortedSet::new();
-    while i < set1.len() {
-        if j >= set2.len() {
-            r.push(set1[i]);
-            i += 1;
-        } else {
-            match set1[i].cmp(&set2[j]) {
-                std::cmp::Ordering::Less => {
-                    r.push(set1[i]);
-                    i += 1;
-                }
-                std::cmp::Ordering::Equal => i += 1,
-                std::cmp::Ordering::Greater => j += 1,
-            }
-        }
-    }
-    r
+    buff.extend(a);
+    buff.extend(iter1);
+    buff.extend(b);
+    buff.extend(iter2);
 }
 
 pub fn get_test_games() -> Vec<(TakingGame, Option<usize>, Option<bool>)> {

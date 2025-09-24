@@ -16,7 +16,7 @@ impl Constructor {
             g: TakingGame::from_hyperedges(hyperedges)
                 .into_iter()
                 .next()
-                .unwrap(),
+                .unwrap_or_default(),
         }
     }
     /// Returns a graph with one empty set (no nodes).
@@ -26,6 +26,9 @@ impl Constructor {
     /// Returns a graph with one set containing a single node.
     pub fn unit() -> Constructor {
         Constructor::from_hyperedges(vec![vec![0]])
+    }
+    pub fn heap(size: usize) -> Constructor {
+        Constructor::from_hyperedges(vec![(0..size).collect()])
     }
     /// Constructs a Kayles game of the given size.
     ///

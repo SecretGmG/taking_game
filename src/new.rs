@@ -76,10 +76,8 @@ impl TakingGame {
         } else {
             let old_nodes = mem::take(&mut self.nodes);
             self.nodes = vec![0; all_nodes.len()];
-            for (old_index, old_label) in old_nodes.into_iter().enumerate() {
-                self.nodes[*node_map
-                    .get(&old_index)
-                    .expect("all nodes should be in node map")] = old_label
+            for (old_index, new_index) in node_map.iter() {
+                self.nodes[*new_index] = old_nodes[**old_index];
             }
         }
     }
@@ -164,8 +162,8 @@ impl TakingGame {
         permutation: &[usize],
         keys: &[T],
     ) {
-        for i in 0..keys.len().saturating_sub(1) {
-            if keys[permutation[i]] != keys[permutation[i + 1]] {
+        for i in 1..keys.len() {
+            if keys[permutation[i - 1]] != keys[permutation[i]] {
                 if let Err(partition_index) = partitions.binary_search(&i) {
                     partitions.insert(partition_index, i);
                 }
@@ -282,9 +280,8 @@ impl TakingGame {
         let mut edge_partition_map = vec![0; self.hyperedges.len()];
 
         loop {
-            Self::fill_partition_map(&mut node_partition_map, &self.node_structure_partitions);
-            Self::fill_inverse_permutation(&mut inv_node_permutation, node_permutation);
-
+            Self::fill_partition_map(&mut edge_partition_map, &self.edge_structure_partitions);
+            Self::fill_inverse_permutation(&mut inv_edge_permutation, edge_permutation);
             for (i, n) in dual.iter().enumerate() {
                 node_keys[i].clear();
                 node_keys[i].extend(
@@ -300,9 +297,8 @@ impl TakingGame {
                 &node_keys,
             );
 
-            Self::fill_partition_map(&mut edge_partition_map, &self.edge_structure_partitions);
-            Self::fill_inverse_permutation(&mut inv_edge_permutation, edge_permutation);
-
+            Self::fill_partition_map(&mut node_partition_map, &self.node_structure_partitions);
+            Self::fill_inverse_permutation(&mut inv_node_permutation, node_permutation);
             for (i, e) in self.hyperedges.iter().enumerate() {
                 edge_keys[i].clear();
                 edge_keys[i].extend(
@@ -379,6 +375,13 @@ impl TakingGame {
 }
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn test_split() {
+        let splits = TakingGame::from_hyperedges(vec![vec![0], vec![1], Vec::new()]);
+        assert_eq!(splits.len(), 2);
+        assert_eq!(splits[0].nodes.len(), 1);
+        assert_eq!(splits[1].nodes.len(), 1);
+    }
     #[test]
     fn test_canonization() {
         let game1 = TakingGame::from_hyperedges(vec![vec![5, 2, 4], vec![0, 4], vec![0, 2]]);

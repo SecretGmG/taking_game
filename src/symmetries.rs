@@ -113,7 +113,7 @@ impl TakingGame {
         let dual = self.hypergraph_dual();
         for node in 0..self.nodes.len() {
             for &e in &dual[node] {
-                neighbourhoods[node] = util::union(&neighbourhoods[node], &self.hyperedges[e])
+                util::union_append(&mut neighbourhoods[node], &self.hyperedges[e]);
             }
         }
         neighbourhoods

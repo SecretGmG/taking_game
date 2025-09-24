@@ -8,9 +8,6 @@ mod new;
 mod symmetries;
 
 pub use constructor::Constructor;
-pub struct Hyperedge {
-    nodes: Vec<usize>,
-}
 /// A generalized representation of an impartial "taking game".
 #[derive(Clone, Debug)]
 pub struct TakingGame {

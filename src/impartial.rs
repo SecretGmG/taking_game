@@ -39,7 +39,7 @@ impl TakingGame {
 
         partitioned_edge
             .iter()
-            .map(|part| (0..=part.len()).rev().map(|i| part[0..i].to_vec())) //remove 0 to all from each structural equivalnve class of nodes in this edge
+            .map(|part| (0..=part.len()).rev().map(|i| part[i..part.len()].to_vec())) //remove 0 to all from each structural equivalnve class of nodes in this edge
             .multi_cartesian_product()
             .map(|nodes_to_remove| nodes_to_remove.into_iter().flatten().collect())
             .skip(1)
@@ -51,7 +51,7 @@ impl TakingGame {
         TakingGame::from_hyperedges_with_nodes(
             self.hyperedges
                 .iter()
-                .map(|e| e.iter().filter(|n| nodes.contains(n)).copied().collect())
+                .map(|e| e.iter().filter(|n| !nodes.contains(n)).copied().collect())
                 .collect(),
             self.nodes.clone(),
         )
@@ -81,6 +81,42 @@ mod test {
     fn test_unit_move_generation() {
         let g = Constructor::unit().build();
         assert_eq!(g.get_split_moves(), vec![Vec::<TakingGame>::new()])
+    }
+    #[test]
+    fn test_split_node_remove() {
+        let g = Constructor::from_hyperedges(vec![vec![0, 2], vec![1, 2]]).build();
+        let with_node_removed = g.with_nodes_removed(vec![2]);
+        assert_eq!(with_node_removed.len(), 2);
+    }
+    #[test]
+    fn test_l_move_generation() {
+        let g = Constructor::from_hyperedges(vec![vec![0, 1], vec![1, 2]]);
+        let mut splits: Vec<usize> = g
+            .build()
+            .get_split_moves()
+            .iter()
+            .map(|split| split.len())
+            .collect();
+        splits.sort();
+        assert_eq!(splits, vec![1, 1, 2]);
+    }
+
+    #[test]
+    fn test_nimber_heaps() {
+        let eval = Evaluator::new();
+
+        for size in [0, 1, 2, 5, 10, 50] {
+            let g = Constructor::heap(size).build();
+            assert_eq!(eval.get_nimber(&g), Some(size));
+        }
+    }
+    #[test]
+    fn test_kayles() {
+        let eval = Evaluator::new();
+        for (size, nimber) in [0, 1, 2, 3, 1, 4, 3, 2, 1, 4, 2, 6].into_iter().enumerate() {
+            let g = Constructor::kayles(size).build();
+            assert_eq!(eval.get_nimber(&g), Some(nimber));
+        }
     }
 
     #[test]
