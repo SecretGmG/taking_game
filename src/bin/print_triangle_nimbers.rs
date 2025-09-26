@@ -16,9 +16,8 @@ fn main() {
         .expect("could not be parsed to integer");
 
     for i in 0..max {
-        let g = Constructor::triangle(i).build();
+        let g = Constructor::triangle(i).build_one();
         println!("{}:{}", i, eval.get_nimber(&g).unwrap());
         println!("Cache size {:?}", eval.get_cache_size())
     }
 }
-

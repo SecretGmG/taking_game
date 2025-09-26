@@ -3,13 +3,14 @@ use std::{collections::HashMap, mem};
 use union_find::{QuickUnionUf, UnionByRank, UnionFind};
 
 impl Default for TakingGame {
+    /// Returns an empty `TakingGame`.
     fn default() -> Self {
         Self::empty()
     }
 }
 
 impl TakingGame {
-    ///creates an empty GeneralizedNimGame
+    /// Returns an empty `TakingGame`.
     pub fn empty() -> TakingGame {
         TakingGame {
             hyperedges: Vec::new(),
@@ -19,13 +20,17 @@ impl TakingGame {
             //unconnected_nodes: Vec::new(),
         }
     }
+    /// Constructs one or more `TakingGame`s from hyperedges only.
+    /// May return multiple components if the hypergraph is disconnected.
     pub fn from_hyperedges(hyperedges: Vec<Vec<usize>>) -> Vec<TakingGame> {
         Self::from_hyperedges_with_nodes(hyperedges, Vec::new()) //, Vec::new());
     }
+    /// Constructs one or more `TakingGame`s from hyperedges and optional node labels.
+    /// - Removes redundant hyperedges (subsets).
+    /// - Splits disconnected parts into separate games.
     pub fn from_hyperedges_with_nodes(
         hyperedges: Vec<Vec<usize>>,
         nodes: Vec<usize>,
-        //unconnected_nodes: Vec<Vec<usize>>,
     ) -> Vec<TakingGame> {
         let mut g = TakingGame {
             hyperedges,
@@ -36,8 +41,12 @@ impl TakingGame {
         g.remove_redundant_hyperedges();
         g.get_parts()
     }
-    /// Normalize node indices by flattening and mapping original node labels
-    /// to a compact range 0..N-1, updates hyperedges and original node labels.
+
+    /// Normalize node indices:
+    /// - Maps arbitrary node labels to a compact range [0..N).
+    /// - Updates both `hyperedges` and `nodes`.
+    ///
+    /// Assumes `nodes` is either empty (auto-fill) or consistent with hyperedges.
     fn flatten_nodes(&mut self) {
         let mut all_nodes: Vec<usize> = self
             .hyperedges
@@ -58,6 +67,7 @@ impl TakingGame {
                 node_map.insert(n, i);
             }
 
+            // Remap hyperedge indices
             for e in self.hyperedges.iter_mut() {
                 (0..e.len()).for_each(|i| {
                     e[i] = *node_map
@@ -68,7 +78,7 @@ impl TakingGame {
                 e.dedup();
             }
         }
-
+        // Update `nodes` accordingly
         if self.nodes.is_empty() || all_nodes.is_empty() {
             self.nodes = all_nodes;
         } else if edges_are_compact {
@@ -81,8 +91,10 @@ impl TakingGame {
             }
         }
     }
-    /// Remove sets that are subsets of other sets
-    /// Sorts and dedups hyperedges
+
+    /// Removes redundant hyperedges:
+    /// - Deletes hyperedges that are subsets of others.
+    /// - Re-flattens node indices if modifications occur.
     fn remove_redundant_hyperedges(&mut self) {
         self.flatten_nodes();
         self.hyperedges.sort_by_key(|e| e.len());
@@ -108,10 +120,12 @@ impl TakingGame {
         }
     }
 
+    /// Splits the game into connected components.
+    /// Returns one `TakingGame` per component.
     pub fn get_parts(self) -> Vec<TakingGame> {
         let mut uf: QuickUnionUf<UnionByRank> = QuickUnionUf::new(self.nodes.len());
 
-        // Union all nodes in each set
+        // Union all nodes in each hyperedge
         for e in &self.hyperedges {
             let mut iter = e.iter();
             if let Some(&first) = iter.next() {
@@ -145,8 +159,9 @@ impl TakingGame {
         parts.iter_mut().for_each(|part| part.partition_sort());
         parts
     }
+    /// Computes the hypergraph dual:
+    /// - For each node, returns the list of hyperedges it belongs to.
     pub fn hypergraph_dual(&self) -> Vec<Vec<usize>> {
-        // initialize one empty vec per node
         let mut dual: Vec<Vec<usize>> = vec![Vec::new(); self.nodes.len()];
 
         for (edge_index, edge) in self.hyperedges.iter().enumerate() {
@@ -157,52 +172,8 @@ impl TakingGame {
         dual
     }
 
-    fn refine_partitions_by_key<T: Ord>(
-        partitions: &mut Vec<usize>,
-        permutation: &[usize],
-        keys: &[T],
-    ) {
-        for i in 1..keys.len() {
-            if keys[permutation[i - 1]] != keys[permutation[i]] {
-                if let Err(partition_index) = partitions.binary_search(&i) {
-                    partitions.insert(partition_index, i);
-                }
-            }
-        }
-    }
-
-    fn sort_partitions_by_key<T: Ord>(partitions: &[usize], permutation: &mut [usize], keys: &[T]) {
-        for i in 0..partitions.len() - 1 {
-            let part = &mut permutation[partitions[i]..partitions[i + 1]];
-            part.sort_by_key(|e| &keys[*e]);
-        }
-    }
-    fn sort_refine_partitions_by_key<T: Ord>(
-        partitions: &mut Vec<usize>,
-        permutation: &mut [usize],
-        keys: &[T],
-    ) {
-        Self::sort_partitions_by_key(partitions, permutation, keys);
-        Self::refine_partitions_by_key(partitions, permutation, keys);
-    }
-
-    /// Returns a partition map assigning each element to a partition index.
-    /// Partition indices are 1-based: elements in the first block map to 1,
-    /// next block to 2, etc.
-    fn fill_partition_map(buff: &mut [usize], partitions: &[usize]) {
-        let mut p = 1;
-        (0..buff.len()).for_each(|i| {
-            if partitions[p] == i {
-                p += 1;
-            }
-            buff[i] = p;
-        });
-    }
-    fn fill_inverse_permutation(buff: &mut [usize], permutation: &[usize]) {
-        for i in 0..permutation.len() {
-            buff[permutation[i]] = i
-        }
-    }
+    /// Applies a permutation to reorder hyperedges.
+    /// Assumes `permutation` is a valid reordering of [0..edges).
     fn apply_edge_permutation(&mut self, permutation: &[usize]) {
         let l = self.hyperedges.len();
         let mut old_hyperedges = mem::replace(&mut self.hyperedges, vec![Vec::new(); l]);
@@ -211,6 +182,10 @@ impl TakingGame {
             self.hyperedges[i] = mem::take(&mut old_hyperedges[permutation[i]]);
         }
     }
+
+    /// Applies a permutation to reorder nodes.
+    /// Also updates hyperedges to reflect new node indices.
+    /// Assumes `permutation` is a valid reordering of [0..nodes).
     fn apply_node_permutation(&mut self, permutation: &[usize]) {
         let l = self.nodes.len();
         let old_nodes = mem::replace(&mut self.nodes, vec![0; l]);
@@ -219,8 +194,9 @@ impl TakingGame {
             self.nodes[i] = old_nodes[permutation[i]];
         }
 
+        // Build inverse mapping for remapping hyperedges
         let mut inv = vec![0; permutation.len()];
-        Self::fill_inverse_permutation(&mut inv, permutation);
+        util::fill_inverse_permutation(&mut inv, permutation);
         for e in self.hyperedges.iter_mut() {
             for i in 0..e.len() {
                 e[i] = inv[e[i]];
@@ -229,8 +205,10 @@ impl TakingGame {
         }
     }
 
-    /// Sort sets and nodes into pseudo-canonical order.
-    /// partitions sets and nodes into structural equivalents classes
+    /// Sorts nodes and hyperedges into a canonical order.
+    /// - Builds structural equivalence classes.
+    /// - Refines partitions until stable.
+    /// - Applies canonical permutations to nodes and edges.
     fn partition_sort(&mut self) {
         let mut edge_permutation: Vec<usize> = (0..self.hyperedges.len()).collect();
         let mut node_permutation: Vec<usize> = (0..self.nodes.len()).collect();
@@ -243,12 +221,12 @@ impl TakingGame {
         self.edge_structure_partitions = vec![0, self.hyperedges.len()];
         self.node_structure_partitions = vec![0, self.nodes.len()];
 
-        Self::sort_refine_partitions_by_key(
+        util::sort_refine_partitions_by_key(
             &mut self.edge_structure_partitions,
             &mut edge_permutation,
             &initial_edge_keys,
         );
-        Self::sort_refine_partitions_by_key(
+        util::sort_refine_partitions_by_key(
             &mut self.node_structure_partitions,
             &mut node_permutation,
             &initial_node_keys,
@@ -261,6 +239,8 @@ impl TakingGame {
         self.apply_node_permutation(&node_permutation);
     }
 
+    /// Refines structural equivalence classes of nodes and edges
+    /// until partition count stops increasing.
     fn build_structural_eq_classes(
         &mut self,
         edge_permutation: &mut [usize],
@@ -280,8 +260,8 @@ impl TakingGame {
         let mut edge_partition_map = vec![0; self.hyperedges.len()];
 
         loop {
-            Self::fill_partition_map(&mut edge_partition_map, &self.edge_structure_partitions);
-            Self::fill_inverse_permutation(&mut inv_edge_permutation, edge_permutation);
+            util::fill_partition_map(&mut edge_partition_map, &self.edge_structure_partitions);
+            util::fill_inverse_permutation(&mut inv_edge_permutation, edge_permutation);
             for (i, n) in dual.iter().enumerate() {
                 node_keys[i].clear();
                 node_keys[i].extend(
@@ -291,14 +271,14 @@ impl TakingGame {
                 node_keys[i].sort_unstable();
             }
 
-            Self::sort_refine_partitions_by_key(
+            util::sort_refine_partitions_by_key(
                 &mut self.node_structure_partitions,
                 node_permutation,
                 &node_keys,
             );
 
-            Self::fill_partition_map(&mut node_partition_map, &self.node_structure_partitions);
-            Self::fill_inverse_permutation(&mut inv_node_permutation, node_permutation);
+            util::fill_partition_map(&mut node_partition_map, &self.node_structure_partitions);
+            util::fill_inverse_permutation(&mut inv_node_permutation, node_permutation);
             for (i, e) in self.hyperedges.iter().enumerate() {
                 edge_keys[i].clear();
                 edge_keys[i].extend(
@@ -308,7 +288,7 @@ impl TakingGame {
                 edge_keys[i].sort_unstable();
             }
 
-            Self::sort_refine_partitions_by_key(
+            util::sort_refine_partitions_by_key(
                 &mut self.edge_structure_partitions,
                 edge_permutation,
                 &edge_keys,
@@ -321,6 +301,9 @@ impl TakingGame {
             nr_partitions = new_nr_partitions;
         }
     }
+
+    /// Canonicalizes order of nodes and edges within partitions.
+    /// Runs at most MAX_ITER iterations or until stable.
     fn sort_canonically(
         &mut self,
         edge_permutation: &mut Vec<usize>,
@@ -342,26 +325,25 @@ impl TakingGame {
             old_edge.copy_from_slice(edge_permutation);
             old_node.copy_from_slice(node_permutation);
 
-            Self::fill_inverse_permutation(&mut inv_node_permutation, node_permutation);
-
+            util::fill_inverse_permutation(&mut inv_edge_permutation, edge_permutation);
             for (i, n) in dual.iter().enumerate() {
                 node_keys[i].clear();
                 node_keys[i].extend(n.iter().map(|edge| inv_edge_permutation[*edge]));
                 node_keys[i].sort_unstable();
             }
-            Self::sort_partitions_by_key(
+            util::sort_partitions_by_key(
                 &self.node_structure_partitions,
                 node_permutation,
                 &node_keys,
             );
 
-            Self::fill_inverse_permutation(&mut inv_edge_permutation, edge_permutation);
+            util::fill_inverse_permutation(&mut inv_node_permutation, node_permutation);
             for (i, e) in self.hyperedges.iter().enumerate() {
                 edge_keys[i].clear();
                 edge_keys[i].extend(e.iter().map(|node| inv_node_permutation[*node]));
                 edge_keys[i].sort_unstable();
             }
-            Self::sort_partitions_by_key(
+            util::sort_partitions_by_key(
                 &self.edge_structure_partitions,
                 edge_permutation,
                 &edge_keys,

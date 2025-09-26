@@ -4,20 +4,25 @@ use std::vec;
 
 /// A helper struct for constructing `TakingGame` instances from various configurations.
 ///
-/// Provides utilities for building graphs from hyperedges, performing transformations
+/// Provides utilities for buid_one()ing graphs from hyperedges, performing transformations
 /// like extrusion and connection, and generating standard structures (e.g., grids, cubes).
+#[derive(PartialEq, Eq, Debug)]
 pub struct Constructor {
-    g: TakingGame,
+    hyperedges: Vec<Vec<usize>>,
 }
 impl Constructor {
+    pub fn get_nodes(&self) -> Vec<usize> {
+        let mut nodes: Vec<usize> = self.hyperedges.iter().flatten().copied().collect();
+        nodes.sort();
+        nodes.dedup();
+        nodes
+    }
+    pub fn get_max_node(&self) -> usize {
+        self.get_nodes().pop().unwrap_or(0)
+    }
     /// Creates a `Constructor` from a given list of sets of nodes (hyperedges).
     pub fn from_hyperedges(hyperedges: Vec<Vec<usize>>) -> Constructor {
-        Constructor {
-            g: TakingGame::from_hyperedges(hyperedges)
-                .into_iter()
-                .next()
-                .unwrap_or_default(),
-        }
+        Constructor { hyperedges }
     }
     /// Returns a graph with one empty set (no nodes).
     pub fn empty() -> Constructor {
@@ -105,6 +110,9 @@ impl Constructor {
     ///
     /// Built by repeatedly extruding a unit graph.
     pub fn hyper_cuboid(lengths: Vec<usize>) -> Constructor {
+        if lengths.contains(&0) {
+            return Constructor::empty();
+        }
         let mut g = Self::unit();
         for length in lengths {
             g = g.extrude(length);
@@ -122,34 +130,36 @@ impl Constructor {
         g
     }
     /// Finalizes the graph and returns the underlying `TakingGame`.
-    pub fn build(self) -> TakingGame {
-        self.g
+    pub fn build(self) -> Vec<TakingGame> {
+        TakingGame::from_hyperedges(self.hyperedges)
+    }
+    pub fn build_one(self) -> TakingGame {
+        let mut games = self.build();
+        games.sort_by_key(|g| g.nodes.len());
+        games.pop().unwrap_or_default()
     }
     /// Connects a single-node unit graph to all existing nodes in the current graph.
     ///
     /// Returns the combined structure.
     pub fn connect_unit_to_all(self) -> Constructor {
-        self.fully_connect(&Self::unit().build())
+        self.fully_connect(&Self::unit())
     }
     /// Fully connects the current graph to another `TakingGame`.
     ///
     /// Adds pairwise sets between all nodes of `self` and the other game,
     /// and appends all sets from the other game (offset appropriately).
-    pub fn fully_connect(mut self, g: &TakingGame) -> Constructor {
-        let node_count = self.g.nodes.len();
-        let mut new_hyperedges = self.g.hyperedges.clone();
-        for set in &g.hyperedges {
-            new_hyperedges.push(set.iter().map(|n| n + node_count).collect());
+    pub fn fully_connect(mut self, other: &Self) -> Constructor {
+        let self_nodes = self.get_nodes();
+        let other_nodes = other.get_nodes();
+        let shift = self.get_max_node() + 1;
+        for e in &other.hyperedges {
+            self.hyperedges.push(e.iter().map(|n| n + shift).collect());
         }
-        for i in 0..node_count {
-            for j in node_count..(node_count + g.nodes.len()) {
-                new_hyperedges.push(vec![i, j]);
+        for i in &self_nodes {
+            for j in &other_nodes {
+                self.hyperedges.push(vec![*i, *j + shift]);
             }
         }
-        self.g = TakingGame::from_hyperedges(new_hyperedges)
-            .into_iter()
-            .next()
-            .unwrap();
         self
     }
     /// Extrudes the current graph `l` times along a new dimension.
@@ -157,29 +167,25 @@ impl Constructor {
     /// Duplicates all sets `l` times with increasing node offsets,
     /// and adds alignment sets connecting corresponding nodes across layers.
     pub fn extrude(mut self, l: usize) -> Constructor {
-        let mut new_sets_of_nodes = self.g.hyperedges.clone();
-        let node_count = self.g.nodes.len();
+        let old_hyperedges = self.hyperedges.clone();
+        let shift = self.get_max_node() + 1;
 
-        for edge in &self.g.hyperedges {
+        for edge in &old_hyperedges {
             for offset in 0..l {
-                let mut new_set_of_nodes = Vec::new();
+                let mut new_edge = Vec::new();
                 for node in edge {
-                    new_set_of_nodes.push(node + offset * node_count);
+                    new_edge.push(node + offset * shift);
                 }
-                new_sets_of_nodes.push(new_set_of_nodes);
+                self.hyperedges.push(new_edge);
             }
         }
-        for node in 0..node_count {
+        for node in 0..shift {
             let mut new_set = Vec::new();
             for offset in 0..l {
-                new_set.push(node + offset * node_count);
+                new_set.push(node + offset * shift);
             }
-            new_sets_of_nodes.push(new_set);
+            self.hyperedges.push(new_set);
         }
-        self.g = TakingGame::from_hyperedges(new_sets_of_nodes)
-            .into_iter()
-            .next()
-            .unwrap();
         self
     }
 }
