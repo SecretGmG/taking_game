@@ -1,5 +1,3 @@
-pub mod sparse;
-pub use sparse::util;
-pub use sparse::Constructor;
-pub use sparse::TakingGame;
-pub mod dense;
+pub mod builder;
+pub mod hypergraph;
+pub mod taking_game;
