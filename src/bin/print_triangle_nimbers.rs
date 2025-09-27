@@ -1,7 +1,7 @@
 use std::io::stdin;
 
 use evaluator::Evaluator;
-use taking_game::Constructor;
+use taking_game::builder::Builder;
 
 fn main() {
     let eval = Evaluator::new();
@@ -16,7 +16,7 @@ fn main() {
         .expect("could not be parsed to integer");
 
     for i in 0..max {
-        let g = Constructor::triangle(i).build_one();
+        let g = Builder::triangle(i).build_one().unwrap();
         println!("{}:{}", i, eval.get_nimber(&g).unwrap());
         println!("Cache size {:?}", eval.get_cache_size())
     }

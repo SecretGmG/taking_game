@@ -1,5 +1,6 @@
 use evaluator::Impartial;
 use itertools::Itertools;
+use rayon::prelude::*;
 
 use crate::{
     hypergraph::{Bitset128, Set},
@@ -26,7 +27,7 @@ impl Impartial for TakingGame {
         }
         self.graph
             .get_edge_partitions()
-            .iter()
+            .par_iter()
             .flat_map(|e| self.get_moves_of_edge(e.start))
             .collect()
     }
@@ -35,7 +36,10 @@ impl Impartial for TakingGame {
 impl TakingGame {
     /// Generate all moves resulting from removing nodes belonging
     /// to a given hyperedge, partitioned by structural equivalence.
-    fn get_moves_of_edge(&self, hyperedge: usize) -> impl Iterator<Item = Vec<TakingGame>> + '_ {
+    fn get_moves_of_edge(
+        &self,
+        hyperedge: usize,
+    ) -> impl ParallelIterator<Item = Vec<TakingGame>> + '_ {
         let partitioned_hyperedge =
             self.graph.hyperedges()[hyperedge].partition(&self.graph.get_node_partitions());
 
@@ -51,7 +55,7 @@ impl TakingGame {
             nodes_to_remove_in_part
         });
 
-        let nodes_to_remove = nodes_to_remove_per_part
+        nodes_to_remove_per_part
             .multi_cartesian_product()
             .map(|nodes_to_remove_in_parts| {
                 let mut nodes_to_remove = Bitset128::default();
@@ -60,14 +64,23 @@ impl TakingGame {
                     .for_each(|n| nodes_to_remove.union(n));
                 nodes_to_remove
             })
-            .skip(1);
-        nodes_to_remove.map(|mask| self.with_nodes_removed(mask))
+            .skip(1)
+            .par_bridge()
+            .map(|mask| self.with_nodes_from_set_removed(mask))
     }
 
+    pub fn with_nodes_removed(&self, nodes: &[usize]) -> Vec<Self> {
+        let node_labels = self.graph.nodes();
+        let mask: Vec<usize> = nodes
+            .iter()
+            .filter_map(|a| node_labels.iter().position(|b| a == b))
+            .collect();
+        self.with_nodes_from_set_removed(Bitset128::from_slice(&mask))
+    }
     /// Return new game states with the given nodes removed.
     ///
     /// Each hyperedge is filtered to exclude the removed nodes.
-    pub fn with_nodes_removed(&self, mask: Bitset128) -> Vec<Self> {
+    fn with_nodes_from_set_removed(&self, mask: Bitset128) -> Vec<Self> {
         self.graph
             .minus(mask)
             .into_iter()
@@ -80,7 +93,6 @@ impl TakingGame {
 mod tests {
     use super::*;
     use crate::builder::Builder;
-    use crate::hypergraph::Bitset128;
 
     #[test]
     fn test_simple_move_generation() {
@@ -101,9 +113,7 @@ mod tests {
     #[test]
     fn test_with_nodes_removed_basic() {
         let game = Builder::heap(3).build_one().unwrap();
-        let mut mask = Bitset128::default();
-        mask.union(&Bitset128::from_slice(&[0])); // remove node 0
-        let with_one_removed = game.with_nodes_removed(mask);
+        let with_one_removed = game.with_nodes_removed(&[0]);
         assert_eq!(with_one_removed.len(), 1);
         assert_eq!(with_one_removed[0].nr_nodes(), 2);
     }

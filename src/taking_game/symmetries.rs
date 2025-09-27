@@ -1,6 +1,4 @@
-use std::collections::HashSet;
-
-use crate::hypergraph::Set;
+use crate::hypergraph::{Bitset128, Set};
 
 use super::TakingGame;
 
@@ -41,7 +39,7 @@ impl TakingGame {
     fn generate_symmetry_from_sets_of_candidates(
         &self,
         symmetries: &mut Vec<Option<usize>>,
-        neighbourhoods: &Vec<HashSet<usize>>,
+        neighbourhoods: &Vec<Bitset128>,
     ) -> Option<Vec<usize>> {
         if let Some(node) = symmetries.iter().position(|v| v.is_none()) {
             let candidates = self.find_valid_candidates(node, symmetries, neighbourhoods);
@@ -73,7 +71,7 @@ impl TakingGame {
         &self,
         node: usize,
         symmetries: &[Option<usize>],
-        neighbourhoods: &[HashSet<usize>],
+        neighbourhoods: &[Bitset128],
     ) -> Vec<usize> {
         self.graph
             .get_node_partitions()
@@ -94,7 +92,7 @@ impl TakingGame {
         node: usize,
         candidate: usize,
         symmetries: &[Option<usize>],
-        neighbourhoods: &[HashSet<usize>],
+        neighbourhoods: &[Bitset128],
     ) -> bool {
         if node == candidate || symmetries[candidate].is_some() {
             return false;
@@ -106,7 +104,7 @@ impl TakingGame {
 
         let candidate_neighbours = &neighbourhoods[candidate];
 
-        for &neighbour in &neighbourhoods[node] {
+        for neighbour in neighbourhoods[node].iter() {
             if let Some(mapped) = symmetries[neighbour] {
                 if !candidate_neighbours.contains(&mapped) {
                     return false;
@@ -119,14 +117,12 @@ impl TakingGame {
     /// Builds neighborhood lists for all nodes.
     ///
     /// Each entry contains the union of nodes sharing a hyperedge with the given node.
-    fn get_neighbourhoods(&self) -> Vec<HashSet<usize>> {
-        let mut neighbourhoods: Vec<HashSet<usize>> = vec![HashSet::new(); self.graph.nr_nodes()];
+    fn get_neighbourhoods(&self) -> Vec<Bitset128> {
+        let mut neighbourhoods = vec![Bitset128::default(); self.graph.nr_nodes()];
         let dual = self.graph.dual();
         for node in 0..self.graph.nr_nodes() {
             for &e in &dual[node] {
-                for neighbour in self.graph.hyperedges()[e].iter() {
-                    neighbourhoods[node].insert(neighbour);
-                }
+                neighbourhoods[node].union(&self.graph.hyperedges()[e]);
             }
         }
         neighbourhoods

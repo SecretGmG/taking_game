@@ -1,6 +1,7 @@
 use indicatif::ProgressIterator;
 use std::time::Instant;
-use taking_game::util::get_test_games;
+mod helper;
+use helper::get_test_games;
 
 fn main() {
     // Time measurement

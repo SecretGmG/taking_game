@@ -1,7 +1,8 @@
 use evaluator::Impartial;
 use indicatif::ProgressIterator;
 use std::time::Instant;
-use taking_game::util::get_test_games;
+mod helper;
+use helper::get_test_games;
 
 fn main() {
     // Setup
@@ -15,4 +16,3 @@ fn main() {
     // Output
     println!("Time elapsed: {:.6?}", duration);
 }
-

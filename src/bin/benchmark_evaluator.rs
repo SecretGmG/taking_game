@@ -1,10 +1,11 @@
 use evaluator::Evaluator;
 use indicatif::ProgressIterator;
-use taking_game::util::get_test_games;
 use std::{
     thread::{self},
     time::{Duration, Instant},
 };
+mod helper;
+use helper::get_test_games;
 
 fn main() {
     // Setup
@@ -38,7 +39,7 @@ fn main() {
     println!("Cache entries: {:.6?}", eval.get_cache_size());
 }
 
-
-//cargo run --release --bin benchmark_evaluator
-//Time elapsed: 2.227720s
-//Cache entries: 4922
+// cargo run --release --bin benchmark_evaluator
+//
+// Time elapsed: 463.178522ms
+// Cache entries: 2991

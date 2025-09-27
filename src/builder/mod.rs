@@ -21,7 +21,7 @@ impl Builder {
     pub fn get_max_node(&self) -> usize {
         self.get_nodes().pop().unwrap_or(0)
     }
-    /// Creates a `Constructor` from a given list of sets of nodes (hyperedges).
+    /// Creates a `Builder` from a given list of sets of nodes (hyperedges).
     pub fn from_hyperedges(hyperedges: Vec<Vec<usize>>) -> Builder {
         Builder { hyperedges }
     }

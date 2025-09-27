@@ -1,4 +1,4 @@
-use std::{hash::Hash, ops::Range, usize};
+use std::{hash::Hash, ops::Range};
 
 pub trait Set: Default + Sized + Eq + Hash {
     type Iter<'a>: Iterator<Item = usize> + 'a
@@ -11,6 +11,8 @@ pub trait Set: Default + Sized + Eq + Hash {
     fn len(&self) -> usize;
     fn is_empty(&self) -> bool;
     fn iter(&self) -> Self::Iter<'_>;
+
+    fn contains(&self, element: &usize) -> bool;
     fn union(&mut self, other: &Self);
     fn minus(&self, other: &Self) -> Self;
     fn is_subset(&self, other: &Self) -> bool;
@@ -55,9 +57,7 @@ impl Set for Bitset128 {
 
     fn from_slice(vec: &[usize]) -> Self {
         let mut set = Bitset128::default();
-        for e in vec {
-            set.insert(*e);
-        }
+        vec.iter().copied().for_each(|e| set.insert(e));
         set
     }
 
@@ -96,13 +96,17 @@ impl Set for Bitset128 {
     }
 
     fn is_flattened(&self) -> bool {
-        self.0.trailing_ones() == self.0.count_ones()
+        self.0 & (self.0.wrapping_add(1)) == 0
     }
 
     fn partition(&self, partitions: &[Range<usize>]) -> Vec<Self> {
         let mut p = Vec::with_capacity(partitions.len());
         for part in partitions {
-            let mask = ((1 << part.len()) - 1) << part.start;
+            let mask = if part.len() == 128 {
+                u128::MAX
+            } else {
+                ((1u128 << part.len()) - 1) << part.start
+            };
             p.push(Bitset128(self.0 & mask));
         }
         p
@@ -112,7 +116,7 @@ impl Set for Bitset128 {
         if self.is_empty() {
             return None;
         }
-        let val = self.0.trailing_zeros() as usize;
+        let val = 127 - self.0.leading_zeros() as usize;
         self.0 &= !(1 << val);
         Some(val)
     }
@@ -123,6 +127,10 @@ impl Set for Bitset128 {
 
     fn minus(&self, other: &Self) -> Self {
         Self(self.0 & !other.0)
+    }
+
+    fn contains(&self, element: &usize) -> bool {
+        (self.0 >> element) & 1 == 1
     }
 }
 #[cfg(test)]
@@ -194,10 +202,17 @@ mod tests {
     #[test]
     fn test_pop() {
         let mut b = Bitset128(0b10110);
-        assert_eq!(b.pop(), Some(1));
-        assert_eq!(b.pop(), Some(2));
         assert_eq!(b.pop(), Some(4));
+        assert_eq!(b.pop(), Some(2));
+        assert_eq!(b.pop(), Some(1));
         assert_eq!(b.pop(), None);
         assert!(b.is_empty());
+    }
+    #[test]
+    fn test_contains() {
+        let b = Bitset128::from_slice(&[1, 2, 3, 5, 8, 13, 21, 34]);
+        assert!(b.contains(&1));
+        assert!(b.contains(&34));
+        assert!(!b.contains(&17));
     }
 }

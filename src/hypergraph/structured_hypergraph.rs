@@ -1,5 +1,5 @@
 use core::hash;
-use std::{cmp::Reverse, collections::HashMap, ops::Range};
+use std::{cmp::Reverse, collections::HashMap, mem, ops::Range};
 use union_find::{QuickUnionUf, UnionByRank, UnionFind};
 
 use crate::hypergraph::Set;
@@ -65,12 +65,13 @@ where
         )
     }
     pub fn from_hyperedges(hyperedges: Vec<E>) -> Vec<StructuredHypergraph<E>> {
-        let nodes = (0..=hyperedges
+        let max_node = hyperedges
             .iter()
             .flat_map(|e| e.iter())
             .max()
-            .unwrap_or(0usize))
-            .collect();
+            .map(|max| max + 1)
+            .unwrap_or_default();
+        let nodes: Vec<usize> = (0..max_node).collect();
         Self::from_hyperedges_with_nodes(hyperedges, nodes)
     }
     /// - Removes redundant hyperedges (subsets).
@@ -103,7 +104,8 @@ where
             return;
         }
 
-        let node_map: Vec<usize> = all_nodes.iter().collect();
+        let mut node_map: Vec<usize> = Vec::with_capacity(all_nodes.len());
+        node_map.extend(all_nodes.iter());
         debug_assert_eq!(node_map.len(), all_nodes.len());
         self.apply_node_map(&node_map);
     }
@@ -124,7 +126,7 @@ where
             self.flatten_nodes();
         }
     }
-    pub fn get_parts(self) -> Vec<StructuredHypergraph<E>> {
+    pub fn get_parts(mut self) -> Vec<StructuredHypergraph<E>> {
         //Union all nodes in each hyperedge
         let mut uf: QuickUnionUf<UnionByRank> = QuickUnionUf::new(self.nodes.len());
 
@@ -137,35 +139,40 @@ where
                 }
             }
         }
-        let mut parts: HashMap<usize, StructuredHypergraph<E>> = HashMap::new();
-        for e in self.hyperedges.into_iter() {
-            let representative = e
+        let mut buckets: HashMap<usize, Vec<usize>> = HashMap::with_capacity(2);
+        for e in 0..self.hyperedges.len() {
+            let representative = self.hyperedges[e]
                 .iter()
                 .next()
                 .expect("every hyperedge should be non-empty");
             let root = uf.find(representative);
-
-            match parts.get_mut(&root) {
-                Some(g) => g.hyperedges.push(e),
-                None => {
-                    let default = StructuredHypergraph {
-                        hyperedges: vec![e],
-                        nodes: self.nodes.clone(),
-                        node_structure_partitions: vec![],
-                        edge_structure_partitions: vec![],
-                    };
-                    parts.insert(root, default);
+            match buckets.get_mut(&root) {
+                Some(v) => {
+                    v.push(e);
                 }
-            }
+                None => {
+                    buckets.insert(root, vec![e]);
+                }
+            };
         }
-
-        if parts.len() > 1 {
-            parts.values_mut().for_each(|p| p.flatten_nodes());
+        if buckets.len() == 1 {
+            return vec![StructuralHypergraphSorter::new(self).sort()];
+        }
+        let mut parts = Vec::with_capacity(buckets.len());
+        for edges in buckets.values() {
+            let mut part = StructuredHypergraph {
+                hyperedges: edges
+                    .iter()
+                    .map(|e| mem::take(&mut self.hyperedges[*e]))
+                    .collect(),
+                nodes: self.nodes.clone(),
+                node_structure_partitions: vec![],
+                edge_structure_partitions: vec![],
+            };
+            part.flatten_nodes();
+            parts.push(StructuralHypergraphSorter::new(part).sort());
         }
         parts
-            .into_values()
-            .map(|p| StructuralHypergraphSorter::new(p).sort())
-            .collect()
     }
     fn apply_edge_map(&mut self, map: &[usize]) {
         let mut old_edges: Vec<Option<E>> =
@@ -187,7 +194,8 @@ where
         for edge in self.hyperedges.iter_mut() {
             edge.apply_node_map(map);
         }
-        let old_nodes = self.nodes.clone();
+        let old_nodes = mem::take(&mut self.nodes);
+        self.nodes.resize(old_nodes.len(), 0);
         self.nodes = map.iter().map(|&old_idx| old_nodes[old_idx]).collect();
     }
 
@@ -208,7 +216,7 @@ where
     node_map: Vec<usize>,
     edge_map: Vec<usize>,
 
-    // temporary buffer
+    // temporary buffer for convergence check
     temp_buffer: Vec<usize>,
 
     // used to map values to keys
@@ -224,15 +232,17 @@ impl<E> StructuralHypergraphSorter<E>
 where
     E: Set,
 {
-    const MAX_ITER: usize = 8;
+    const MAX_ITER: usize = 4;
 
     pub fn new(hypergraph: StructuredHypergraph<E>) -> Self {
+        let buffsize = hypergraph.nodes.len().max(hypergraph.hyperedges.len());
         let dual = hypergraph.dual();
         Self {
             node_map: (0..hypergraph.nodes.len()).collect(),
             edge_map: (0..hypergraph.hyperedges.len()).collect(),
-            temp_buffer: Vec::with_capacity(hypergraph.nodes.len()),
-            key_map_buffer: Vec::with_capacity(hypergraph.hyperedges.len()),
+
+            temp_buffer: Vec::with_capacity(buffsize),
+            key_map_buffer: Vec::with_capacity(buffsize),
 
             node_keys: Self::get_initial_keys(dual.iter().map(|n| n.len())),
             edge_keys: Self::get_initial_keys(hypergraph.hyperedges.iter().map(|n| n.len())),
@@ -243,7 +253,7 @@ where
     fn get_initial_keys<T: Iterator<Item = usize>>(v: T) -> Vec<Vec<usize>> {
         v.map(|l| {
             let mut k = Vec::with_capacity(l);
-            k.push(l);
+            k.push(usize::MAX - l);
             k
         })
         .collect()
@@ -307,21 +317,26 @@ where
     fn sort_canonically(&mut self) {
         for _ in 0..Self::MAX_ITER {
             Self::fill_inv_permutation(&mut self.key_map_buffer, &self.edge_map);
+            for k in self.key_map_buffer.iter_mut() {
+                *k = self.edge_map.len() - 1 - *k;
+            }
             self.temp_buffer.resize(self.node_map.len(), 0);
             self.temp_buffer.copy_from_slice(&self.node_map);
             self.build_node_keys();
             self.sort_nodes();
-            if self.temp_buffer == self.node_map {
-                //    return;
-            }
+            let node_perm_unchanged = self.temp_buffer == self.node_map;
 
             Self::fill_inv_permutation(&mut self.key_map_buffer, &self.node_map);
+            for k in self.key_map_buffer.iter_mut() {
+                *k = self.node_map.len() - 1 - *k;
+            }
             self.temp_buffer.resize(self.edge_map.len(), 0);
             self.temp_buffer.copy_from_slice(&self.edge_map);
             self.build_edge_keys();
             self.sort_edges();
-            if self.temp_buffer == self.edge_map {
-                //    return;
+            let edge_perm_unchanged = self.temp_buffer == self.edge_map;
+            if edge_perm_unchanged && node_perm_unchanged {
+                return;
             }
         }
     }
@@ -375,13 +390,14 @@ where
         permutation: &[usize],
         keys: &[T],
     ) {
+        partitions.clear();
+        partitions.push(0);
         for i in 1..keys.len() {
             if keys[permutation[i - 1]] != keys[permutation[i]] {
-                if let Err(partition_index) = partitions.binary_search(&i) {
-                    partitions.insert(partition_index, i);
-                }
+                partitions.push(i);
             }
         }
+        partitions.push(keys.len());
     }
 
     fn sort_partitions_by_key<T: Ord>(partitions: &[usize], permutation: &mut [usize], keys: &[T]) {
@@ -523,8 +539,8 @@ mod tests {
         let dual = g[0].dual();
         // dual should map nodes to incident hyperedges
         assert_eq!(dual.len(), 3); // 3 nodes
-        assert_eq!(dual[0], vec![0]);
-        assert_eq!(dual[1], vec![1]);
+        assert_eq!(dual[0], vec![1]);
+        assert_eq!(dual[1], vec![0]);
         assert_eq!(dual[2], vec![0, 1]);
     }
 
