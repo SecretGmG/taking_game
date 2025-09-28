@@ -1,3 +1,4 @@
+use std::fmt::Display;
 use std::hash::{Hash, Hasher};
 mod impartial;
 mod symmetries;
@@ -7,7 +8,7 @@ use crate::hypergraph::Set;
 use crate::hypergraph::StructuredHypergraph;
 
 /// A generalized representation of an impartial "taking game".
-#[derive(Clone, Debug, Eq)]
+#[derive(Clone, Eq, Debug)]
 pub struct TakingGame {
     graph: StructuredHypergraph<Bitset128>,
 }
@@ -25,6 +26,12 @@ impl TakingGame {
     }
     pub fn nodes(&self) -> &[usize] {
         self.graph.nodes()
+    }
+}
+impl Display for TakingGame {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        writeln!(f, "Taking Game:")?;
+        self.graph.fmt(f)
     }
 }
 impl Hash for TakingGame {

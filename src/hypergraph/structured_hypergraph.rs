@@ -4,7 +4,7 @@ use union_find::{QuickUnionUf, UnionByRank, UnionFind};
 
 use crate::hypergraph::Set;
 
-#[derive(Clone, Debug, Eq)]
+#[derive(Clone, Eq)]
 pub struct StructuredHypergraph<E>
 where
     E: Set,
@@ -246,6 +246,55 @@ where
     }
 }
 
+use std::fmt;
+
+impl<E> fmt::Display for StructuredHypergraph<E>
+where
+    E: Set,
+{
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        if self.nodes.is_empty() {
+            return writeln!(f, "Empty hypergraph");
+        }
+
+        // Determine column width dynamically based on largest node number
+        let max_node = *self.nodes().iter().max().unwrap_or(&0);
+        let col_width = max_node.to_string().len().max(3); // at least width 3
+
+        // Print node headers
+        write!(f, "Nodes:  ")?;
+        for &n in self.nodes() {
+            write!(f, "{:>width$} ", n, width = col_width)?;
+        }
+        writeln!(f)?;
+
+        // Print edges
+        writeln!(f, "Edges:")?;
+        for e in &self.hyperedges {
+            write!(f, "        ")?;
+            for (i, &n) in self.nodes().iter().enumerate() {
+                if e.contains(&i) {
+                    write!(f, "{:>width$} ", n, width = col_width)?;
+                } else {
+                    write!(f, "{:width$} ", "", width = col_width)?;
+                }
+            }
+            writeln!(f)?;
+        }
+
+        Ok(())
+    }
+}
+
+impl<E> fmt::Debug for StructuredHypergraph<E>
+where
+    E: Set,
+{
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self)
+    }
+}
+
 struct StructuralHypergraphSorter<E>
 where
     E: Set,
@@ -267,7 +316,7 @@ impl<E> StructuralHypergraphSorter<E>
 where
     E: Set,
 {
-    const MAX_ITER: usize = 4;
+    const MAX_ITER: usize = 128;
 
     /// Creates a new sorter for a hypergraph.
     ///

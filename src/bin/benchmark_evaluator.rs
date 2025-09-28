@@ -11,10 +11,10 @@ fn main() {
     // Setup
     let eval = Evaluator::new();
 
-    let cancel_flag = eval.get_cancel_flag();
+    let eval_clone = eval.clone();
     thread::spawn(move || {
         thread::sleep(Duration::from_secs(60));
-        cancel_flag.store(true, std::sync::atomic::Ordering::Relaxed);
+        eval_clone.stop();
     });
 
     // Time measurement

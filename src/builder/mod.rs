@@ -1,4 +1,4 @@
-use rand::{rng, Rng};
+use rand::{Rng, rng};
 use std::vec;
 
 use crate::taking_game::TakingGame;
@@ -20,6 +20,14 @@ impl Builder {
     }
     pub fn get_max_node(&self) -> usize {
         self.get_nodes().pop().unwrap_or(0)
+    }
+    pub fn build(self) -> Vec<TakingGame> {
+        TakingGame::from_hyperesges(self.hyperedges)
+    }
+    pub fn build_one(self) -> Option<TakingGame> {
+        let mut games = self.build();
+        games.sort_by_key(|g| g.nr_nodes());
+        games.pop()
     }
     /// Creates a `Builder` from a given list of sets of nodes (hyperedges).
     pub fn from_hyperedges(hyperedges: Vec<Vec<usize>>) -> Builder {
@@ -130,14 +138,6 @@ impl Builder {
         }
         g
     }
-    pub fn build(self) -> Vec<TakingGame> {
-        TakingGame::from_hyperesges(self.hyperedges)
-    }
-    pub fn build_one(self) -> Option<TakingGame> {
-        let mut games = self.build();
-        games.sort_by_key(|g| g.nr_nodes());
-        games.pop()
-    }
     /// Connects a single-node unit graph to all existing nodes in the current graph.
     ///
     /// Returns the combined structure.
@@ -185,6 +185,13 @@ impl Builder {
                 new_set.push(node + offset * shift);
             }
             self.hyperedges.push(new_set);
+        }
+        self
+    }
+    pub fn sum(mut self, other: Self) -> Self {
+        let shift = self.get_max_node() + 1;
+        for e in other.hyperedges {
+            self.hyperedges.push(e.iter().map(|n| n + shift).collect());
         }
         self
     }
@@ -241,7 +248,7 @@ mod tests {
         let c = a.fully_connect(&b);
         let nodes = c.get_nodes();
         assert!(nodes.len() >= 3); // 1 from a, 2 from b
-                                   // Each node from a should be connected to each node from b
+        // Each node from a should be connected to each node from b
         let max_node_b = b.get_max_node();
         for e in &c.hyperedges {
             for &n in e {
