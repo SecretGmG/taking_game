@@ -1,0 +1,3 @@
+# Taking Game library
+
+A Rust library for representing, manipulating taking games, represented as structured hypergraphs with efficient canonicalization and partitioning.

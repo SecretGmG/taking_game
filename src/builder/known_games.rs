@@ -53,7 +53,6 @@ impl KnownGame {
 }
 
 pub fn get_known_games() -> Vec<KnownGame> {
-    //game , nimber , symmetry
     vec![
         KnownGame::from_builder(Builder::rect(1, 3))
             .nimber(3)
