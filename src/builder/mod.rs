@@ -1,3 +1,5 @@
+mod known_games;
+pub use known_games::get_known_games;
 use rand::{Rng, rng};
 use std::vec;
 

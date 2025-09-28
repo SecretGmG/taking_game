@@ -9,19 +9,23 @@ path = "src/lib.rs"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
+[profile.release]
+debug = true # Criterion uses debug info to generate plots
+
 [dependencies]
 rand = "0.9.1"
 queues = "1.1.0"
 sorted-vec = "0.8.6"
 indicatif = "0.18.0"
 union-find = "0.4.3"
-evaluator = { git = "https://github.com/SecretGmG/impartial_analiser", version = "0.2.4" }
 rayon = "1.10.0"
 itertools = "0.14.0"
 permutation = "0.4.1"
+evaluator = { git = "https://github.com/SecretGmG/impartial_analiser", version = "0.2.4" }
 
-[features]
-default = ["symmetry_finder"]
+[dev-dependencies]
+criterion = { version = "0.7", features = ["html_reports"] }
 
-# Each can be individually toggled
-symmetry_finder = []
+[[bench]]
+name = "benchmark_evaluator"
+harness = false

@@ -1,6 +1,6 @@
 use std::{hash::Hash, ops::Range};
 
-pub trait Set: Default + Sized + Eq + Hash {
+pub trait Set: Default + Sized + Eq + Hash + PartialOrd + Ord {
     type Iter<'a>: Iterator<Item = usize> + 'a
     where
         Self: 'a;
@@ -24,7 +24,7 @@ pub trait Set: Default + Sized + Eq + Hash {
     fn pop(&mut self) -> Option<usize>;
 }
 
-#[derive(Default, PartialEq, Eq, Debug, Clone, Hash)]
+#[derive(Default, PartialEq, Eq, Debug, Clone, Hash, PartialOrd, Ord)]
 pub struct Bitset128(u128);
 impl Bitset128 {
     pub fn new(bits: u128) -> Self {

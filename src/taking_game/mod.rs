@@ -8,7 +8,7 @@ use crate::hypergraph::Set;
 use crate::hypergraph::StructuredHypergraph;
 
 /// A generalized representation of an impartial "taking game".
-#[derive(Clone, Eq, Debug)]
+#[derive(Clone, Eq, Debug, PartialOrd, Ord)]
 pub struct TakingGame {
     graph: StructuredHypergraph<Bitset128>,
 }

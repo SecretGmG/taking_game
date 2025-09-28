@@ -1,5 +1,5 @@
 use evaluator::Evaluator;
-use taking_game::builder::Builder;
+use taking_game::builder::{Builder, get_known_games};
 
 #[test]
 fn unit_nimber() {
@@ -46,5 +46,14 @@ fn squares() {
         let g = Builder::rect(i, i).build_one().unwrap();
         let nimber = evaluator.get_nimber(&g);
         assert_eq!(nimber, Some(0));
+    }
+}
+#[test]
+fn test_known_games() {
+    let evaluator = Evaluator::new();
+    for k in get_known_games() {
+        let nimber = evaluator.get_nimber_by_parts(k.get_parts());
+        assert!(k.check_nimber(nimber.unwrap()));
+        assert!(k.check_symmetry());
     }
 }

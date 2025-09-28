@@ -24,6 +24,23 @@ where
     }
 }
 
+impl<E> Ord for StructuredHypergraph<E>
+where
+    E: Set,
+{
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        self.hyperedges.cmp(&other.hyperedges)
+    }
+}
+impl<E> PartialOrd for StructuredHypergraph<E>
+where
+    E: Set,
+{
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
 impl<E> hash::Hash for StructuredHypergraph<E>
 where
     E: Set,
