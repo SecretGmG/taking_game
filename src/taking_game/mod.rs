@@ -8,7 +8,7 @@ use crate::hypergraph::Set;
 use crate::hypergraph::StructuredHypergraph;
 
 /// A generalized representation of an impartial "taking game".
-#[derive(Clone, Eq, Debug, PartialOrd, Ord)]
+#[derive(Clone, PartialEq, Eq, Debug, PartialOrd, Ord)]
 pub struct TakingGame {
     graph: StructuredHypergraph<Bitset128>,
 }
@@ -37,10 +37,5 @@ impl Display for TakingGame {
 impl Hash for TakingGame {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.graph.hash(state);
-    }
-}
-impl PartialEq for TakingGame {
-    fn eq(&self, other: &Self) -> bool {
-        self.graph == other.graph
     }
 }

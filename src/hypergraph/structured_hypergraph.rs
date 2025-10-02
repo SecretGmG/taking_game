@@ -1,5 +1,5 @@
 use core::hash;
-use std::{cmp::Reverse, collections::HashMap, mem, ops::Range};
+use std::{cmp::Reverse, collections::HashMap, hash::Hash, mem, ops::Range};
 use union_find::{QuickUnionUf, UnionByRank, UnionFind};
 
 use crate::hypergraph::Set;
@@ -17,7 +17,7 @@ where
 
 impl<E> PartialEq for StructuredHypergraph<E>
 where
-    E: Set,
+    E: Set + Eq,
 {
     fn eq(&self, other: &Self) -> bool {
         self.hyperedges == other.hyperedges
@@ -26,7 +26,7 @@ where
 
 impl<E> Ord for StructuredHypergraph<E>
 where
-    E: Set,
+    E: Set + Ord,
 {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
         self.hyperedges.cmp(&other.hyperedges)
@@ -34,7 +34,7 @@ where
 }
 impl<E> PartialOrd for StructuredHypergraph<E>
 where
-    E: Set,
+    E: Set + Ord,
 {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
         Some(self.cmp(other))
@@ -43,7 +43,7 @@ where
 
 impl<E> hash::Hash for StructuredHypergraph<E>
 where
-    E: Set,
+    E: Set + Hash,
 {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         self.hyperedges.hash(state);

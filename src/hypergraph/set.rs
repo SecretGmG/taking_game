@@ -1,6 +1,6 @@
 use std::{hash::Hash, ops::Range};
 
-pub trait Set: Default + Sized + Eq + Hash + PartialOrd + Ord {
+pub trait Set: Default + Sized {
     type Iter<'a>: Iterator<Item = usize> + 'a
     where
         Self: 'a;
