@@ -1,3 +1,6 @@
+use std::collections::HashMap;
+use std::ops::Range;
+
 use evaluator::Impartial;
 use itertools::Itertools;
 use rayon::prelude::*;
@@ -25,10 +28,11 @@ impl Impartial for TakingGame {
         if self.graph.is_empty() {
             return vec![];
         }
+        let node_partitions = self.graph.get_node_partitions();
         self.graph
             .get_edge_partitions()
-            .par_iter()
-            .flat_map(|e| self.get_moves_of_edge(e.start))
+            .into_par_iter()
+            .flat_map(|e| self.get_moves_of_edge(e.start, &node_partitions))
             .collect()
     }
 }
@@ -36,12 +40,13 @@ impl Impartial for TakingGame {
 impl TakingGame {
     /// Generate all moves resulting from removing nodes belonging
     /// to a given hyperedge, partitioned by structural equivalence.
-    fn get_moves_of_edge(
-        &self,
+    fn get_moves_of_edge<'a>(
+        &'a self,
         hyperedge: usize,
-    ) -> impl ParallelIterator<Item = Vec<TakingGame>> + '_ {
+        node_partitions: &'a [Range<usize>],
+    ) -> impl ParallelIterator<Item = Vec<TakingGame>> + 'a {
         let partitioned_hyperedge =
-            self.graph.hyperedges()[hyperedge].partition(&self.graph.get_node_partitions());
+            self.graph.hyperedges()[hyperedge].partition(node_partitions);
 
         let nodes_to_remove_per_part = partitioned_hyperedge.into_iter().map(|mut part| {
             let mut nodes_to_remove_in_part = Vec::with_capacity(part.len() + 1);
@@ -65,15 +70,21 @@ impl TakingGame {
                 nodes_to_remove
             })
             .skip(1)
-            .par_bridge()
+            .collect::<Vec<_>>()
+            .into_par_iter()
             .map(|mask| self.with_nodes_from_set_removed(mask))
     }
 
     pub fn with_nodes_removed(&self, nodes: &[usize]) -> Vec<Self> {
         let node_labels = self.graph.nodes();
+        let label_to_index: HashMap<usize, usize> = node_labels
+            .iter()
+            .enumerate()
+            .map(|(i, &label)| (label, i))
+            .collect();
         let mask: Vec<usize> = nodes
             .iter()
-            .filter_map(|a| node_labels.iter().position(|b| a == b))
+            .filter_map(|a| label_to_index.get(a).copied())
             .collect();
         self.with_nodes_from_set_removed(Bitset128::from_slice(&mask))
     }

@@ -1,3 +1,5 @@
+use std::ops::Range;
+
 use crate::hypergraph::{Bitset128, Set};
 
 use super::TakingGame;
@@ -10,22 +12,20 @@ impl TakingGame {
     /// Returns `Some(vec)` if a valid mapping is found, where `vec[i]` is the node
     /// symmetric to `i`. Returns `None` if no symmetry exists.
     pub fn find_symmetry(&self) -> Option<Vec<usize>> {
+        let edge_partitions = self.graph.get_edge_partitions();
+        let node_partitions = self.graph.get_node_partitions();
         if self.graph.nr_nodes().is_multiple_of(2)
             && self.graph.hyperedges().len().is_multiple_of(2)
-            && self
-                .graph
-                .get_edge_partitions()
-                .iter()
-                .all(|p| p.len().is_multiple_of(2))
-            && self
-                .graph
-                .get_node_partitions()
-                .iter()
-                .all(|p| p.len().is_multiple_of(2))
+            && edge_partitions.iter().all(|p| p.len().is_multiple_of(2))
+            && node_partitions.iter().all(|p| p.len().is_multiple_of(2))
         {
             let neighbourhoods = self.get_neighbourhoods();
             let mut symmetries = vec![None; self.graph.nr_nodes()];
-            self.generate_symmetry_from_sets_of_candidates(&mut symmetries, &neighbourhoods)
+            self.generate_symmetry_from_sets_of_candidates(
+                &mut symmetries,
+                &neighbourhoods,
+                &node_partitions,
+            )
         } else {
             None
         }
@@ -39,17 +39,21 @@ impl TakingGame {
     fn generate_symmetry_from_sets_of_candidates(
         &self,
         symmetries: &mut Vec<Option<usize>>,
-        neighbourhoods: &Vec<Bitset128>,
+        neighbourhoods: &[Bitset128],
+        node_partitions: &[Range<usize>],
     ) -> Option<Vec<usize>> {
         if let Some(node) = symmetries.iter().position(|v| v.is_none()) {
-            let candidates = self.find_valid_candidates(node, symmetries, neighbourhoods);
+            let candidates =
+                self.find_valid_candidates(node, symmetries, neighbourhoods, node_partitions);
             for cand in candidates {
                 symmetries[node] = Some(cand);
                 symmetries[cand] = Some(node);
 
-                if let Some(result) =
-                    self.generate_symmetry_from_sets_of_candidates(symmetries, neighbourhoods)
-                {
+                if let Some(result) = self.generate_symmetry_from_sets_of_candidates(
+                    symmetries,
+                    neighbourhoods,
+                    node_partitions,
+                ) {
                     return Some(result);
                 }
 
@@ -72,12 +76,13 @@ impl TakingGame {
         node: usize,
         symmetries: &[Option<usize>],
         neighbourhoods: &[Bitset128],
+        node_partitions: &[Range<usize>],
     ) -> Vec<usize> {
-        self.graph
-            .get_node_partitions()
-            .into_iter()
+        node_partitions
+            .iter()
             .find(|p| p.contains(&node))
             .unwrap()
+            .clone()
             .filter(|&cand| self.is_valid_match(node, cand, symmetries, neighbourhoods))
             .collect()
     }
@@ -105,10 +110,10 @@ impl TakingGame {
         let candidate_neighbours = &neighbourhoods[candidate];
 
         for neighbour in neighbourhoods[node].iter() {
-            if let Some(mapped) = symmetries[neighbour] {
-                if !candidate_neighbours.contains(&mapped) {
-                    return false;
-                }
+            if let Some(mapped) = symmetries[neighbour]
+                && !candidate_neighbours.contains(&mapped)
+            {
+                return false;
             }
         }
         true

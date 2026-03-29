@@ -13,7 +13,7 @@ pub struct TakingGame {
     graph: StructuredHypergraph<Bitset128>,
 }
 impl TakingGame {
-    pub fn from_hyperesges(edges: Vec<Vec<usize>>) -> Vec<Self> {
+    pub fn from_hyperedges(edges: Vec<Vec<usize>>) -> Vec<Self> {
         StructuredHypergraph::from_hyperedges(
             edges.iter().map(|s| Bitset128::from_slice(s)).collect(),
         )

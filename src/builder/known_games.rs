@@ -1,3 +1,5 @@
+use itertools::Itertools;
+
 use crate::{builder::Builder, taking_game::TakingGame};
 
 pub struct KnownGame {
@@ -30,19 +32,17 @@ impl KnownGame {
         self.nimber.map(|n| n == nimber).unwrap_or(true)
     }
     pub fn check_symmetry(&self) -> bool {
-        if let Some(symmetry) = self.symmetry {
+        if let Some(expected_symmetry) = self.symmetry {
             let mut parts = self.parts.clone();
             parts.sort();
-            let mut i = 0;
-            while i + 1 < parts.len() {
-                if parts[i] == parts[i + 1] {
-                    parts.remove(i);
-                    parts.remove(i);
-                } else {
-                    i += 1;
-                }
-            }
-            symmetry == parts.iter().all(|p| p.find_symmetry().is_some())
+            // Pair-cancel identical adjacent components in O(n):
+            // components appearing an odd number of times remain unpaired.
+            let all_symmetric = parts
+                .iter()
+                .dedup_with_count()
+                .filter(|(count, _)| count % 2 == 1)
+                .all(|(_, p)| p.find_symmetry().is_some());
+            expected_symmetry == all_symmetric
         } else {
             true
         }
