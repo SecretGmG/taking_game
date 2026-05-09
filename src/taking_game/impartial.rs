@@ -45,8 +45,7 @@ impl TakingGame {
         hyperedge: usize,
         node_partitions: &'a [Range<usize>],
     ) -> impl ParallelIterator<Item = Vec<TakingGame>> + 'a {
-        let partitioned_hyperedge =
-            self.graph.hyperedges()[hyperedge].partition(node_partitions);
+        let partitioned_hyperedge = self.graph.hyperedges()[hyperedge].partition(node_partitions);
 
         let nodes_to_remove_per_part = partitioned_hyperedge.into_iter().map(|mut part| {
             let mut nodes_to_remove_in_part = Vec::with_capacity(part.len() + 1);
@@ -70,8 +69,7 @@ impl TakingGame {
                 nodes_to_remove
             })
             .skip(1)
-            .collect::<Vec<_>>()
-            .into_par_iter()
+            .par_bridge()
             .map(|mask| self.with_nodes_from_set_removed(mask))
     }
 

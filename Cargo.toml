@@ -3,6 +3,9 @@ name = "taking_game"
 version = "0.1.0"
 edition = "2024"
 
+[workspace]
+members = ["crates/evaluator"]
+
 [lib]
 name = "taking_game"
 path = "src/lib.rs"
@@ -21,7 +24,7 @@ union-find = "0.4.3"
 rayon = "1.10.0"
 itertools = "0.14.0"
 permutation = "0.4.1"
-evaluator = { git = "https://github.com/SecretGmG/impartial_analiser", version = "0.2.6" }
+evaluator = { path = "crates/evaluator", version = "0.2.6" }
 
 [dev-dependencies]
 criterion = { version = "0.7", features = ["html_reports"] }

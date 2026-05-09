@@ -211,7 +211,6 @@ checksum = "34aa73646ffb006b8f5147f3dc182bd4bcb190227ce861fc4a4844bf8e3cb2c0"
 [[package]]
 name = "evaluator"
 version = "0.2.6"
-source = "git+https://github.com/SecretGmG/impartial_analiser#9804f4e254dbe913b027c46448a4b8f1fac332bb"
 dependencies = [
  "dashmap",
  "serde",

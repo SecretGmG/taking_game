@@ -239,8 +239,7 @@ where
     /// Applies a permutation to reorder edges.
     /// Assumes map contains a valid permutation of edge indices.
     fn apply_edge_map(&mut self, map: &[usize]) {
-        let mut old_edges: Vec<Option<E>> =
-            self.hyperedges.drain(..).map(|e| Some(e)).collect();
+        let mut old_edges: Vec<Option<E>> = self.hyperedges.drain(..).map(|e| Some(e)).collect();
         self.hyperedges = map
             .iter()
             .map(|&new_idx| {
