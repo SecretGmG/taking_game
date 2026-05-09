@@ -131,6 +131,12 @@ where
     /// Returns the dual hypergraph representation.
     ///
     /// Each node is mapped to the list of incident hyperedges.
+    ///
+    /// # Invariant
+    /// Requires that node indices are compact: every value returned by
+    /// `edge.iter()` must be a valid index into the `nodes` slice
+    /// (i.e. `< self.nodes.len()`).  This invariant is established by
+    /// [`flatten_nodes`] and must hold before calling this method.
     pub fn dual(&self) -> Vec<Vec<usize>> {
         let mut dual = vec![Vec::new(); self.nodes.len()];
         for (i, edge) in self.hyperedges.iter().enumerate() {
@@ -206,12 +212,7 @@ where
                 .next()
                 .expect("every hyperedge should be non-empty");
             let root = uf.find(representative);
-            match buckets.get_mut(&root) {
-                Some(v) => v.push(e),
-                None => {
-                    buckets.insert(root, vec![e]);
-                }
-            };
+            buckets.entry(root).or_default().push(e);
         }
 
         if buckets.len() == 1 {
@@ -239,7 +240,7 @@ where
     /// Assumes map contains a valid permutation of edge indices.
     fn apply_edge_map(&mut self, map: &[usize]) {
         let mut old_edges: Vec<Option<E>> =
-            self.hyperedges.drain(..).map(|node| Some(node)).collect();
+            self.hyperedges.drain(..).map(|e| Some(e)).collect();
         self.hyperedges = map
             .iter()
             .map(|&new_idx| {

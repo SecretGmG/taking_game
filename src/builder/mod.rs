@@ -21,10 +21,10 @@ impl Builder {
         nodes
     }
     pub fn get_max_node(&self) -> usize {
-        self.get_nodes().pop().unwrap_or(0)
+        self.hyperedges.iter().flatten().copied().max().unwrap_or(0)
     }
     pub fn build(self) -> Vec<TakingGame> {
-        TakingGame::from_hyperesges(self.hyperedges)
+        TakingGame::from_hyperedges(self.hyperedges)
     }
     pub fn build_one(self) -> Option<TakingGame> {
         let mut games = self.build();
@@ -72,10 +72,11 @@ impl Builder {
         min_sets_per_node: usize,
         max_sets_per_node: usize,
     ) -> Builder {
+        let mut r = rng();
         let mut hyperedges = vec![Vec::new(); set_count];
         for node in 0..node_count {
-            for _ in 0..(rng().random_range(min_sets_per_node..max_sets_per_node)) {
-                hyperedges[rng().random_range(..set_count)].push(node);
+            for _ in 0..(r.random_range(min_sets_per_node..max_sets_per_node)) {
+                hyperedges[r.random_range(..set_count)].push(node);
             }
         }
         Builder::from_hyperedges(hyperedges)
@@ -173,7 +174,7 @@ impl Builder {
         let shift = self.get_max_node() + 1;
 
         for edge in &old_hyperedges {
-            for offset in 0..l {
+            for offset in 1..l {
                 let mut new_edge = Vec::new();
                 for node in edge {
                     new_edge.push(node + offset * shift);
